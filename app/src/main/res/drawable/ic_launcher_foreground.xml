@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Búa thợ xây đơn giản, canh giữa vùng an toàn của adaptive icon -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M62,34l12,12l-6,6l-4,-4l-18,18l4,4l-6,6l-12,-12l6,-6l4,4l18,-18l-4,-4z" />
+</vector>

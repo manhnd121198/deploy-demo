@@ -1,0 +1,84 @@
+package vn.coc.builderalarm.parser
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class VillageJsonParserTest {
+
+    // JSON rút gọn từ dữ liệu làng thật, giữ đủ mọi loại timer.
+    private val sampleJson = """
+        {
+          "timestamp": 1783064500,
+          "buildings": [
+            {"data":1000008,"lvl":10,"gear_up":1},
+            {"data":1000009,"lvl":7,"timer":249},
+            {"data":1000021,"lvl":0,"timer":8367},
+            {"data":1000023,"lvl":0,"timer":1783}
+          ],
+          "buildings2": [
+            {"data":1000034,"lvl":5,"timer":142875},
+            {"data":1000033,"lvl":3,"cnt":100}
+          ],
+          "units": [
+            {"data":4000004,"lvl":4},
+            {"data":4000005,"lvl":4,"timer":59684}
+          ],
+          "helpers": [
+            {"data":93000001,"lvl":1,"helper_cooldown":69379}
+          ],
+          "boosts": {"clocktower_cooldown":55111}
+        }
+    """.trimIndent()
+
+    private val timestamp = 1783064500L
+
+    @Test
+    fun `trich dung so luong va phan loai timer`() {
+        // now = timestamp -> mọi timer > 0 đều còn hạn.
+        val tasks = VillageJsonParser.parse(sampleJson, timestamp)
+
+        assertEquals(7, tasks.size)
+        val byCat = tasks.groupingBy { it.category }.eachCount()
+        assertEquals(3, byCat["Thợ xây"])       // 249, 8367, 1783
+        assertEquals(1, byCat["Builder Base"])
+        assertEquals(1, byCat["Lab"])
+        assertEquals(1, byCat["Thợ phụ"])
+        assertEquals(1, byCat["Tháp đồng hồ"])
+    }
+
+    @Test
+    fun `so thu tu Tho xay dem rieng theo nhom`() {
+        val tho = VillageJsonParser.parse(sampleJson, timestamp)
+            .filter { it.category == "Thợ xây" }
+            .map { it.label }
+        assertTrue(tho.contains("Thợ xây #1"))
+        assertTrue(tho.contains("Thợ xây #2"))
+    }
+
+    @Test
+    fun `finishAt bang timestamp cong timer`() {
+        val tasks = VillageJsonParser.parse(sampleJson, timestamp)
+        // Timer nhỏ nhất là 249 -> finishAt sớm nhất.
+        val earliest = tasks.minByOrNull { it.finishAtEpochSec }!!
+        assertEquals(timestamp + 249, earliest.finishAtEpochSec)
+    }
+
+    @Test
+    fun `bo qua timer da xong`() {
+        // now = timestamp + 2000 -> các timer <= 2000 (249, 1783) đã xong.
+        val tasks = VillageJsonParser.parse(sampleJson, timestamp + 2000)
+        val thoCount = tasks.count { it.category == "Thợ xây" }
+        assertEquals(1, thoCount) // chỉ còn timer 8367
+    }
+
+    @Test(expected = VillageParseException::class)
+    fun `json sai nem VillageParseException`() {
+        VillageJsonParser.parse("{ khong-phai-json", 0)
+    }
+
+    @Test(expected = VillageParseException::class)
+    fun `thieu timestamp nem exception`() {
+        VillageJsonParser.parse("""{"buildings":[]}""", 0)
+    }
+}
