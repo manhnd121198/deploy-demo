@@ -20,9 +20,10 @@ data class BuilderTask(
     val label: String,
     val finishAtEpochSec: Long
 ) {
-    /** Giờ xong dạng HH:mm theo múi giờ máy. */
+    /** Giờ xong đầy đủ dạng HH:mm dd/MM/yyyy theo múi giờ máy. */
     fun finishClock(): String =
-        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(finishAtEpochSec * 1000))
+        SimpleDateFormat("HH:mm dd/MM/yyyy", Locale.getDefault())
+            .format(Date(finishAtEpochSec * 1000))
 
     /** Thời gian còn lại dạng "2h19m" / "45m" / "30s" tính từ nowSec. */
     fun remaining(nowSec: Long): String {

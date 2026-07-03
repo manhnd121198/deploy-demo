@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -92,6 +93,13 @@ private fun MainScreen() {
                 value = jsonText,
                 onValueChange = { jsonText = it },
                 label = { Text("Dán JSON làng vào đây") },
+                trailingIcon = {
+                    if (jsonText.isNotEmpty()) {
+                        IconButton(onClick = { jsonText = "" }) {
+                            Icon(Icons.Filled.Clear, contentDescription = "Xoá ô")
+                        }
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(140.dp)
