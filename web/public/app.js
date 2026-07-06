@@ -11,12 +11,14 @@ let serverTasks = []; // việc đã lên lịch trên server (giữ ở client 
 let speed10x = false;
 let clockBaseSec = 0;
 let clockBaseMs = Date.now();
+let lastDisplayNow = -1;
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 
 function resetClock() {
   clockBaseSec = nowSec();
   clockBaseMs = Date.now();
+  lastDisplayNow = -1;
 }
 
 function displayNowSec() {
@@ -249,6 +251,9 @@ function clearJson() {
 
 function renderCountdowns() {
   if (!$("appView").hidden) {
+    const now = displayNowSec();
+    if (now === lastDisplayNow) return;
+    lastDisplayNow = now;
     renderParsed();
     renderServer();
   }
@@ -273,7 +278,7 @@ $("speed10x").onchange = () => {
   renderCountdowns();
 };
 resetClock();
-setInterval(renderCountdowns, 1000);
+setInterval(renderCountdowns, 100);
 
 // Tự vào app nếu còn token hợp lệ.
 if (token) {

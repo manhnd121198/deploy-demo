@@ -101,6 +101,11 @@ button:hover { filter: brightness(1.08); }
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
+th:nth-child(2), td:nth-child(2) {
+  width: 7.5rem;
+  min-width: 7.5rem;
+  font-variant-numeric: tabular-nums;
+}
 td:last-child, th:last-child { text-align: right; width: 1%; }
 tbody:empty::after { content: "Chưa có việc nào."; color: var(--muted); }
 
