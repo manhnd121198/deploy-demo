@@ -4,6 +4,7 @@ import android.content.Context
 import vn.coc.builderalarm.alarm.AlarmScheduler
 import vn.coc.builderalarm.model.BuilderTask
 import vn.coc.builderalarm.parser.VillageJsonParser
+import vn.coc.builderalarm.storage.InputStore
 import vn.coc.builderalarm.storage.TaskStore
 
 /** Gom logic parse + đặt/huỷ báo thức + lưu trữ cho màn hình chính. */
@@ -11,6 +12,7 @@ class BuilderAlarmController(context: Context) {
 
     private val scheduler = AlarmScheduler(context)
     private val store = TaskStore(context)
+    private val inputStore = InputStore(context)
 
     fun canScheduleExact(): Boolean = scheduler.canScheduleExact()
 
@@ -18,9 +20,17 @@ class BuilderAlarmController(context: Context) {
     fun parse(json: String): List<BuilderTask> =
         VillageJsonParser.parse(json, nowSec())
 
+    fun saveInput(json: String, webhookUrl: String) {
+        inputStore.save(json, webhookUrl)
+    }
+
+    fun loadLastJson(): String = inputStore.loadJson()
+
+    fun loadWebhookUrl(): String = inputStore.loadWebhookUrl()
+
     /** Đặt báo thức cho tất cả việc và lưu lại. */
-    fun scheduleAll(tasks: List<BuilderTask>) {
-        tasks.forEach { scheduler.schedule(it) }
+    fun scheduleAll(tasks: List<BuilderTask>, webhookUrl: String) {
+        tasks.forEach { scheduler.schedule(it, webhookUrl) }
         store.saveAll(tasks)
     }
 

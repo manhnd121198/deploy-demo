@@ -22,23 +22,25 @@ class AlarmScheduler(context: Context) {
             true
         }
 
-    fun schedule(task: BuilderTask) {
+    fun schedule(task: BuilderTask, webhookUrl: String) {
         val triggerAtMs = task.finishAtEpochSec * 1000
         alarmManager.setExactAndAllowWhileIdle(
             AlarmManager.RTC_WAKEUP,
             triggerAtMs,
-            pendingIntent(task)
+            pendingIntent(task, webhookUrl)
         )
     }
 
     fun cancel(task: BuilderTask) {
-        alarmManager.cancel(pendingIntent(task))
+        alarmManager.cancel(pendingIntent(task, ""))
     }
 
-    private fun pendingIntent(task: BuilderTask): PendingIntent {
+    private fun pendingIntent(task: BuilderTask, webhookUrl: String): PendingIntent {
         val intent = Intent(appContext, AlarmReceiver::class.java).apply {
             putExtra(AlarmReceiver.EXTRA_TASK_ID, task.id)
             putExtra(AlarmReceiver.EXTRA_LABEL, task.label)
+            putExtra(AlarmReceiver.EXTRA_FINISH_AT, task.finishAtEpochSec)
+            putExtra(AlarmReceiver.EXTRA_WEBHOOK_URL, webhookUrl)
         }
         return PendingIntent.getBroadcast(
             appContext,

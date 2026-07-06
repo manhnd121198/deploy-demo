@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CoC Builder Alarm</title>
+  <link rel="stylesheet" href="styles.css?v=2" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>CoC Builder Alarm</h1>
+
+    <!-- Màn đăng nhập -->
+    <div id="loginView">
+      <p class="sub">Đăng nhập để quản lý lịch gửi Google Chat của bạn (mỗi tài khoản có data riêng).</p>
+      <label for="acctName">Tên tài khoản</label>
+      <input id="acctName" type="text" autocomplete="username" placeholder="vd: lang-chinh" />
+      <label for="acctPin">Mã PIN</label>
+      <input id="acctPin" type="password" autocomplete="current-password" placeholder="4-32 ký tự" />
+      <button id="loginBtn" class="primary">Đăng nhập</button>
+      <button id="registerBtn" class="ghost fullw">Tạo tài khoản mới</button>
+    </div>
+
+    <!-- Màn chính (sau đăng nhập) -->
+    <div id="appView" hidden>
+      <div class="row">
+        <p class="sub nomargin">Tài khoản: <b id="who"></b></p>
+        <button id="logoutBtn" class="ghost">Đăng xuất</button>
+      </div>
+      <label class="switch-row" for="speed10x">
+        <span>Tăng tốc x10</span>
+        <input id="speed10x" type="checkbox" role="switch" />
+      </label>
+
+      <label for="webhook">Google Chat webhook URL</label>
+      <input id="webhook" type="text" autocomplete="off"
+             placeholder="https://chat.googleapis.com/v1/spaces/..." />
+      <button id="testWebhookBtn" class="ghost fullw">Test webhook (gửi tin thử)</button>
+
+      <label for="json">Dán JSON làng vào đây</label>
+      <textarea id="json" rows="8" placeholder='{"timestamp": 1783064500, "buildings": [ ... ]}'></textarea>
+
+      <button id="parseBtn" class="primary">Parse &amp; Xem thời gian</button>
+      <button id="clearJsonBtn" class="ghost fullw">Xóa JSON</button>
+
+      <div id="parsedCard" class="card" hidden>
+        <div class="row">
+          <h2>Việc đang chạy (<span id="parsedCount">0</span>)</h2>
+          <button id="reloadBtn" class="ghost">Reload</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead>
+            <tbody id="parsedBody"></tbody>
+          </table>
+        </div>
+        <button id="scheduleBtn" class="primary">Đặt gửi Chat tất cả</button>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <h2>Đã lên lịch trên server (<span id="serverCount">0</span>)</h2>
+          <button id="refreshBtn" class="ghost">Làm mới</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead>
+            <tbody id="serverBody"></tbody>
+          </table>
+        </div>
+        <button id="cancelAllBtn" class="danger">Huỷ tất cả</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="parser.js?v=3"></script>
+  <script src="app.js?v=3"></script>
+</body>
+</html>

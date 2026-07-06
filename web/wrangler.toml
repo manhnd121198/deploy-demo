@@ -1,0 +1,18 @@
+name = "coc-builder-alarm"
+main = "src/worker.js"
+compatibility_date = "2025-01-01"
+
+# Trang tĩnh trong public/ — request không khớp /api/* sẽ được phục vụ từ đây.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# KV lưu task đã hẹn giờ. Thay "id" bằng id thật sau khi chạy:
+#   npx wrangler kv namespace create TASKS
+[[kv_namespaces]]
+binding = "TASKS"
+id = "d6d5ec1c9db743a79eaf29b90b90badb"
+
+# Cron mỗi phút: quét task tới hạn và gửi Google Chat.
+[triggers]
+crons = ["* * * * *"]

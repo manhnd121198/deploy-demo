@@ -1,0 +1,14 @@
+{
+  "name": "coc-builder-alarm-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Web version of CoC Builder Alarm — parse village JSON, schedule Google Chat messages via Cloudflare Worker cron.",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.107.0"
+  }
+}
