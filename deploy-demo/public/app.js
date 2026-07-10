@@ -15,7 +15,7 @@ let speed10x = false;
 let clockBaseSec = 0;
 let clockBaseMs = Date.now();
 let lastDisplayNow = -1;
-let activeTab = "parse";
+let activeTab = "summary";
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 
@@ -123,6 +123,11 @@ async function enterApp() {
   $("telegramChatId").value = acct.telegramChatId || "";
   $("json").value = acct.json || "";
   await loadCatalog();
+  if ($("json").value.trim()) {
+    parseCurrentJson({ save: false, switchTab: false, quiet: true });
+  } else {
+    renderDetails();
+  }
   await loadServer();
 }
 
@@ -149,8 +154,8 @@ function setActiveTab(tab) {
 async function loadCatalog() {
   if (catalog) return catalog;
   try {
-    catalog = await fetch("data/catalog.json?v=4").then((r) => r.json());
-    $("catalogStatus").textContent = "Catalog OK";
+    catalog = await fetch("data/catalog.json?v=5").then((r) => r.json());
+    $("catalogStatus").textContent = "Catalog sẵn sàng";
   } catch {
     catalog = { items: {} };
     $("catalogStatus").textContent = "Không có catalog";
@@ -186,23 +191,30 @@ function renderParsed() {
   $("parsedCard").hidden = parsed.length === 0;
 }
 
-function doParse() {
+function parseCurrentJson(options = {}) {
+  const shouldSave = options.save !== false;
+  const shouldSwitchTab = options.switchTab !== false;
+  const quiet = options.quiet === true;
   const jsonText = $("json").value;
-  saveJson(jsonText);
+  if (shouldSave) saveJson(jsonText);
   try {
     parsed = parseVillage(jsonText, nowSec());
     detailItems = parseVillageItems(jsonText, catalog);
     renderParsed();
     renderDetails();
-    if (detailItems.length > 0) setActiveTab("summary");
-    if (parsed.length === 0) toast("Không có việc nào đang chạy.");
+    if (detailItems.length > 0 && shouldSwitchTab) setActiveTab("summary");
+    if (parsed.length === 0 && !quiet) toast("Không có việc nào đang chạy.");
   } catch (e) {
     parsed = [];
     detailItems = [];
     renderParsed();
     renderDetails();
-    toast("Dữ liệu không hợp lệ: " + e.message);
+    if (!quiet) toast("Dữ liệu không hợp lệ: " + e.message);
   }
+}
+
+function doParse() {
+  parseCurrentJson({ save: true, switchTab: true });
 }
 
 function renderDetails() {
@@ -252,6 +264,24 @@ function renderDetailTable(tbodyId, rows) {
   }
 }
 
+function viResource(resource) {
+  const names = {
+    Gold: "Vàng",
+    Elixir: "Tiên dược",
+    "Dark Elixir": "Tiên dược Hắc ám",
+    "Builder Gold": "Vàng Thợ xây",
+    "Builder Elixir": "Tiên dược Thợ xây",
+    Gems: "Đá quý",
+    "Capital Gold": "Vàng Thủ đô",
+    "Shiny Ore": "Quặng Sáng",
+    "Glowing Ore": "Quặng Lấp lánh",
+    "Starry Ore": "Quặng Sao",
+    "Sparky Stones": "Đá Tia lửa",
+    Unknown: "Không rõ",
+  };
+  return names[resource] || resource;
+}
+
 function itemNameHtml(item) {
   const image = item.imageUrl
     ? `<img class="item-icon" src="${escAttr(item.imageUrl)}" alt="" loading="lazy" onerror="this.remove()" />`
@@ -294,7 +324,7 @@ function renderSummary(summary) {
   entries.sort((a, b) => b[1] - a[1]);
   for (const [resource, value] of entries) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${esc(resource)}</td><td>${Number(value).toLocaleString()}</td>`;
+    tr.innerHTML = `<td>${esc(viResource(resource))}</td><td>${Number(value).toLocaleString()}</td>`;
     tbody.appendChild(tr);
   }
 }

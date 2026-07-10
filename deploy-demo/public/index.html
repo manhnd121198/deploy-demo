@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CoC Builder Alarm</title>
-  <link rel="stylesheet" href="styles.css?v=17" />
+  <link rel="stylesheet" href="styles.css?v=20" />
 </head>
 <body>
   <div class="wrap">
@@ -28,11 +28,10 @@
         <button id="logoutBtn" class="ghost">Đăng xuất</button>
       </div>
       <nav class="tabs" aria-label="Các màn hình">
-        <button class="tab active" type="button" data-tab="parse">Parse JSON</button>
+        <button class="tab active" type="button" data-tab="parse">Dữ liệu JSON</button>
         <button class="tab" type="button" data-tab="summary">Tổng hợp</button>
         <button class="tab" type="button" data-tab="home">Làng chính</button>
         <button class="tab" type="button" data-tab="builder">Căn cứ thợ xây</button>
-        <button class="tab" type="button" data-tab="schedule">Lịch gửi</button>
       </nav>
 
       <section id="tab-parse" class="tab-panel active">
@@ -40,7 +39,7 @@
           <div class="card">
             <label for="json">Dán JSON làng vào đây</label>
             <textarea id="json" rows="14" placeholder='{"timestamp": 1783064500, "buildings": [ ... ]}'></textarea>
-            <button id="parseBtn" class="primary">Parse &amp; Xem thời gian</button>
+            <button id="parseBtn" class="primary">Phân tích &amp; xem thời gian</button>
             <button id="clearJsonBtn" class="ghost fullw">Xóa JSON</button>
           </div>
 
@@ -82,7 +81,7 @@
               </details>
             </div>
 
-            <button id="testWebhookBtn" class="ghost fullw">Test kênh gửi</button>
+            <button id="testWebhookBtn" class="ghost fullw">Gửi thử kênh nhận</button>
           </div>
         </div>
       </section>
@@ -90,11 +89,11 @@
       <section id="tab-summary" class="tab-panel">
         <div id="summaryCard" class="card" hidden>
           <div class="row">
-            <h2>Tổng hợp left to max</h2>
+            <h2>Tổng hợp nâng tối đa hiện tại</h2>
             <span id="catalogStatus" class="pill">Catalog</span>
           </div>
           <div class="summary-grid">
-            <div class="metric"><span>Item hiện có</span><b id="sumItems">0</b></div>
+            <div class="metric"><span>Hạng mục hiện có</span><b id="sumItems">0</b></div>
             <div class="metric"><span>Số lượng hiện có</span><b id="sumCount">0</b></div>
             <div class="metric"><span>Level còn lại</span><b id="sumLevels">0</b></div>
             <div class="metric"><span>Thời gian tuần tự</span><b id="sumTime">0s</b></div>
@@ -118,12 +117,12 @@
             <table class="detail-table">
               <thead>
                 <tr>
-                  <th>Item</th>
+                  <th>Hạng mục</th>
                   <th>Nguồn</th>
                   <th>Lv</th>
                   <th>Còn</th>
-                  <th>Next</th>
-                  <th>Total</th>
+                  <th>Tiếp theo</th>
+                  <th>Tổng</th>
                   <th>Đang nâng</th>
                 </tr>
               </thead>
@@ -143,12 +142,12 @@
             <table class="detail-table">
               <thead>
                 <tr>
-                  <th>Item</th>
+                  <th>Hạng mục</th>
                   <th>Nguồn</th>
                   <th>Lv</th>
                   <th>Còn</th>
-                  <th>Next</th>
-                  <th>Total</th>
+                  <th>Tiếp theo</th>
+                  <th>Tổng</th>
                   <th>Đang nâng</th>
                 </tr>
               </thead>
@@ -158,19 +157,19 @@
         </div>
       </section>
 
-      <section id="tab-schedule" class="tab-panel">
+      <div class="schedule-grid">
         <div id="parsedCard" class="card" hidden>
-          <div class="row">
-            <h2>Việc đang chạy (<span id="parsedCount">0</span>)</h2>
-            <button id="reloadBtn" class="ghost">Reload</button>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead>
-              <tbody id="parsedBody"></tbody>
-            </table>
-          </div>
-          <button id="scheduleBtn" class="primary">Đặt gửi tất cả</button>
+            <div class="row">
+              <h2>Việc đang chạy (<span id="parsedCount">0</span>)</h2>
+              <button id="reloadBtn" class="ghost">Tải lại</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead>
+                <tbody id="parsedBody"></tbody>
+              </table>
+            </div>
+            <button id="scheduleBtn" class="primary">Đặt gửi tất cả</button>
         </div>
 
         <div class="card">
@@ -186,13 +185,13 @@
           </div>
           <button id="cancelAllBtn" class="danger">Huỷ tất cả</button>
         </div>
-      </section>
+      </div>
     </div>
   </div>
 
   <div id="toast"></div>
 
-  <script src="parser.js?v=17"></script>
-  <script src="app.js?v=17"></script>
+  <script src="parser.js?v=20"></script>
+  <script src="app.js?v=20"></script>
 </body>
 </html>

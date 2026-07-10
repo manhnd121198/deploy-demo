@@ -68,20 +68,20 @@ function parseVillageItems(jsonText, catalog) {
   const blacksmithLevel = findLevel("buildings", 1000070);
   const heroHallLevel = findLevel("buildings", 1000071);
   const sources = [
-    ["buildings", "Home Buildings", "home"],
-    ["traps", "Home Traps", "home"],
-    ["units", "Home Troops", "home"],
-    ["siege_machines", "Siege Machines", "home"],
-    ["heroes", "Home Heroes", "home"],
-    ["spells", "Home Spells", "home"],
-    ["pets", "Hero Pets", "home"],
-    ["equipment", "Hero Equipment", "home"],
-    ["guardians", "Guardians", "home"],
-    ["helpers", "Helpers", "home"],
-    ["buildings2", "Builder Buildings", "builder"],
-    ["traps2", "Builder Traps", "builder"],
-    ["units2", "Builder Troops", "builder"],
-    ["heroes2", "Builder Heroes", "builder"],
+    ["buildings", "Công trình làng chính", "home"],
+    ["traps", "Bẫy làng chính", "home"],
+    ["units", "Quân lính", "home"],
+    ["siege_machines", "Máy công thành", "home"],
+    ["heroes", "Anh hùng", "home"],
+    ["spells", "Thần chú", "home"],
+    ["pets", "Thú cưng", "home"],
+    ["equipment", "Trang bị anh hùng", "home"],
+    ["guardians", "Hộ vệ", "home"],
+    ["helpers", "Trợ thủ", "home"],
+    ["buildings2", "Công trình căn cứ thợ xây", "builder"],
+    ["traps2", "Bẫy căn cứ thợ xây", "builder"],
+    ["units2", "Quân căn cứ thợ xây", "builder"],
+    ["heroes2", "Anh hùng căn cứ thợ xây", "builder"],
   ];
 
   function imageForLevel(item, currentLevel) {
@@ -207,12 +207,30 @@ function formatDuration(totalSec) {
 function formatCosts(costs) {
   const entries = Object.entries(costs || {}).filter(([, value]) => value > 0);
   if (entries.length === 0) return "-";
-  return entries.map(([resource, value]) => `${resource}: ${Number(value).toLocaleString()}`).join(", ");
+  return entries.map(([resource, value]) => `${formatResource(resource)}: ${Number(value).toLocaleString()}`).join(", ");
 }
 
 function formatLevelCosts(level) {
   if (!level) return "-";
   if (level.costs && typeof level.costs === "object") return formatCosts(level.costs);
   if (!level.resource || !level.cost) return "-";
-  return `${level.resource}: ${Number(level.cost || 0).toLocaleString()}`;
+  return `${formatResource(level.resource)}: ${Number(level.cost || 0).toLocaleString()}`;
+}
+
+function formatResource(resource) {
+  const names = {
+    Gold: "Vàng",
+    Elixir: "Tiên dược",
+    "Dark Elixir": "Tiên dược Hắc ám",
+    "Builder Gold": "Vàng Thợ xây",
+    "Builder Elixir": "Tiên dược Thợ xây",
+    Gems: "Đá quý",
+    "Capital Gold": "Vàng Thủ đô",
+    "Shiny Ore": "Quặng Sáng",
+    "Glowing Ore": "Quặng Lấp lánh",
+    "Starry Ore": "Quặng Sao",
+    "Sparky Stones": "Đá Tia lửa",
+    Unknown: "Không rõ",
+  };
+  return names[resource] || resource;
 }

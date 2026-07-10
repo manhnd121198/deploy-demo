@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Left to max preview</title>
-  <link rel="stylesheet" href="styles.css?v=17" />
+  <link rel="stylesheet" href="styles.css?v=20" />
 </head>
 <body>
   <div class="wrap">
@@ -14,7 +14,7 @@
     <div class="card">
       <label for="json">Dán JSON làng vào đây</label>
       <textarea id="json" rows="10" placeholder='{"timestamp": 1783064500, "buildings": [ ... ]}'></textarea>
-      <button id="parseBtn" class="primary">Parse detail</button>
+      <button id="parseBtn" class="primary">Phân tích chi tiết</button>
     </div>
 
     <nav class="tabs" aria-label="Các bảng preview">
@@ -26,11 +26,11 @@
     <section id="tab-summary" class="tab-panel active">
       <div id="summaryCard" class="card" hidden>
         <div class="row">
-          <h2>Tổng hợp left to max</h2>
+        <h2>Tổng hợp nâng tối đa hiện tại</h2>
           <span id="catalogStatus" class="pill">Catalog</span>
         </div>
         <div class="summary-grid">
-          <div class="metric"><span>Item hiện có</span><b id="sumItems">0</b></div>
+        <div class="metric"><span>Hạng mục hiện có</span><b id="sumItems">0</b></div>
           <div class="metric"><span>Số lượng hiện có</span><b id="sumCount">0</b></div>
           <div class="metric"><span>Level còn lại</span><b id="sumLevels">0</b></div>
           <div class="metric"><span>Thời gian tuần tự</span><b id="sumTime">0s</b></div>
@@ -54,13 +54,13 @@
           <table class="detail-table">
             <thead>
               <tr>
-                <th>Item</th>
+                <th>Hạng mục</th>
                 <th>ID</th>
                 <th>Nguồn</th>
                 <th>Lv</th>
                 <th>Còn</th>
-                <th>Next</th>
-                <th>Total</th>
+                <th>Tiếp theo</th>
+                <th>Tổng</th>
                 <th>Đang nâng</th>
               </tr>
             </thead>
@@ -80,13 +80,13 @@
           <table class="detail-table">
             <thead>
               <tr>
-                <th>Item</th>
+                <th>Hạng mục</th>
                 <th>ID</th>
                 <th>Nguồn</th>
                 <th>Lv</th>
                 <th>Còn</th>
-                <th>Next</th>
-                <th>Total</th>
+                <th>Tiếp theo</th>
+                <th>Tổng</th>
                 <th>Đang nâng</th>
               </tr>
             </thead>
@@ -98,7 +98,7 @@
   </div>
 
   <div id="toast"></div>
-  <script src="parser.js?v=17"></script>
+  <script src="parser.js?v=20"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let catalog = { items: {} };
@@ -135,8 +135,8 @@
 
     async function loadCatalog() {
       try {
-        catalog = await fetch("data/catalog.json?v=4").then((r) => r.json());
-        $("catalogStatus").textContent = "Catalog OK";
+        catalog = await fetch("data/catalog.json?v=5").then((r) => r.json());
+        $("catalogStatus").textContent = "Catalog sẵn sàng";
       } catch {
         $("catalogStatus").textContent = "Không có catalog";
       }
@@ -212,7 +212,7 @@
       entries.sort((a, b) => b[1] - a[1]);
       for (const [resource, value] of entries) {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${esc(resource)}</td><td>${Number(value).toLocaleString()}</td>`;
+        tr.innerHTML = `<td>${esc(formatResource(resource))}</td><td>${Number(value).toLocaleString()}</td>`;
         tbody.appendChild(tr);
       }
     }
