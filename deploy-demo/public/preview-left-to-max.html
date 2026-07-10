@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Left to max preview</title>
-  <link rel="stylesheet" href="styles.css?v=20" />
+  <link rel="stylesheet" href="styles.css?v=22" />
 </head>
 <body>
   <div class="wrap">
@@ -26,14 +26,15 @@
     <section id="tab-summary" class="tab-panel active">
       <div id="summaryCard" class="card" hidden>
         <div class="row">
-        <h2>Tổng hợp nâng tối đa hiện tại</h2>
+        <h2>Tổng hợp làng chính</h2>
           <span id="catalogStatus" class="pill">Catalog</span>
         </div>
         <div class="summary-grid">
         <div class="metric"><span>Hạng mục hiện có</span><b id="sumItems">0</b></div>
           <div class="metric"><span>Số lượng hiện có</span><b id="sumCount">0</b></div>
           <div class="metric"><span>Level còn lại</span><b id="sumLevels">0</b></div>
-          <div class="metric"><span>Thời gian tuần tự</span><b id="sumTime">0s</b></div>
+          <div class="metric"><span>Tuần tự</span><b id="sumTime">0s</b></div>
+          <div class="metric"><span>Với 5 thợ</span><b id="sumParallelTime">0s</b></div>
         </div>
         <div class="table-wrap">
           <table>
@@ -98,7 +99,7 @@
   </div>
 
   <div id="toast"></div>
-  <script src="parser.js?v=20"></script>
+  <script src="parser.js?v=22"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let catalog = { items: {} };
@@ -148,10 +149,9 @@
       renderDetailTable("homeDetailBody", homeItems);
       renderDetailTable("builderDetailBody", builderItems);
 
-      const allSummary = summarizeItems(items);
       const homeSummary = summarizeItems(homeItems);
       const builderSummary = summarizeItems(builderItems);
-      renderSummary(allSummary);
+      renderSummary(homeSummary);
 
       $("homeDetailCount").textContent = homeItems.length;
       $("builderDetailCount").textContent = builderItems.length;
@@ -188,15 +188,17 @@
     }
 
     function summarizeItems(items) {
-      const summary = { itemCount: items.length, currentCount: 0, remainingLevels: 0, totalTimeSec: 0, costs: {} };
+      const summary = { itemCount: items.length, currentCount: 0, remainingLevels: 0, totalTimeSec: 0, parallelTimeSec: 0, durations: [], costs: {} };
       for (const item of items) {
         summary.currentCount += Number(item.count || 0);
         summary.remainingLevels += Number(item.remainingLevels || 0) * Number(item.count || 1);
         summary.totalTimeSec += Number(item.totalTimeSec || 0);
+        summary.durations.push(...(item.remainingDurations || []));
         for (const [resource, value] of Object.entries(item.costs || {})) {
           summary.costs[resource] = (summary.costs[resource] || 0) + Number(value || 0);
         }
       }
+      summary.parallelTimeSec = parallelDuration(summary.durations, 5);
       return summary;
     }
 
@@ -205,6 +207,7 @@
       $("sumCount").textContent = Number(summary.currentCount).toLocaleString();
       $("sumLevels").textContent = Number(summary.remainingLevels).toLocaleString();
       $("sumTime").textContent = formatDuration(summary.totalTimeSec);
+      $("sumParallelTime").textContent = formatDuration(summary.parallelTimeSec);
 
       const tbody = $("resourceSummaryBody");
       tbody.innerHTML = "";
@@ -218,7 +221,7 @@
     }
 
     function summaryLabel(summary) {
-      return `${Number(summary.currentCount).toLocaleString()} hiện có · ${formatDuration(summary.totalTimeSec)}`;
+      return `${Number(summary.currentCount).toLocaleString()} hiện có · ${formatDuration(summary.parallelTimeSec)} với 5 thợ`;
     }
 
     $("parseBtn").onclick = () => {

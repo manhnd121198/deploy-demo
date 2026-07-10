@@ -1,0 +1,612 @@
+{
+    "resources": [
+        {
+            "english": "Gold",
+            "vietnamese": "Vàng"
+        },
+        {
+            "english": "Elixir",
+            "vietnamese": "Tiên dược"
+        },
+        {
+            "english": "Dark Elixir",
+            "vietnamese": "Tiên dược Hắc ám"
+        },
+        {
+            "english": "Builder Gold",
+            "vietnamese": "Vàng Thợ xây"
+        },
+        {
+            "english": "Builder Elixir",
+            "vietnamese": "Tiên dược Thợ xây"
+        },
+        {
+            "english": "Gems",
+            "vietnamese": "Đá quý"
+        },
+        {
+            "english": "Capital Gold",
+            "vietnamese": "Vàng Thủ đô"
+        }
+    ],
+    "army_buildings": [
+        {
+            "english": "Army Camp",
+            "vietnamese": "Bãi trại"
+        },
+        {
+            "english": "Barracks",
+            "vietnamese": "Trại lính"
+        },
+        {
+            "english": "Dark Barracks",
+            "vietnamese": "Trại lính Hắc ám"
+        },
+        {
+            "english": "Laboratory",
+            "vietnamese": "Phòng Thí nghiệm"
+        },
+        {
+            "english": "Spell Factory",
+            "vietnamese": "Xưởng Thần chú"
+        },
+        {
+            "english": "Dark Spell Factory",
+            "vietnamese": "Xưởng Thần chú Hắc ám"
+        },
+        {
+            "english": "Workshop",
+            "vietnamese": "Xưởng chế tạo"
+        },
+        {
+            "english": "Pet House",
+            "vietnamese": "Nhà Thú cưng"
+        },
+        {
+            "english": "Blacksmith",
+            "vietnamese": "Lò rèn"
+        }
+    ],
+    "defenses": [
+        {
+            "english": "Town Hall",
+            "vietnamese": "Nhà Chính"
+        },
+        {
+            "english": "Clan Castle",
+            "vietnamese": "Hội Thành"
+        },
+        {
+            "english": "Cannon",
+            "vietnamese": "Khẩu pháo"
+        },
+        {
+            "english": "Archer Tower",
+            "vietnamese": "Tháp Cung"
+        },
+        {
+            "english": "Mortar",
+            "vietnamese": "Súng cối"
+        },
+        {
+            "english": "Air Defense",
+            "vietnamese": "Phòng không"
+        },
+        {
+            "english": "Wizard Tower",
+            "vietnamese": "Tháp Phù thủy"
+        },
+        {
+            "english": "Air Sweeper",
+            "vietnamese": "Máy Quạt gió"
+        },
+        {
+            "english": "Hidden Tesla",
+            "vietnamese": "Tháp Tesla ẩn"
+        },
+        {
+            "english": "Bomb Tower",
+            "vietnamese": "Tháp Bom"
+        },
+        {
+            "english": "X-Bow",
+            "vietnamese": "Nỏ X"
+        },
+        {
+            "english": "Inferno Tower",
+            "vietnamese": "Tháp Hỏa ngục"
+        },
+        {
+            "english": "Eagle Artillery",
+            "vietnamese": "Pháo Đại bàng"
+        },
+        {
+            "english": "Scattershot",
+            "vietnamese": "Máy Bắn đá"
+        },
+        {
+            "english": "Builder's Hut",
+            "vietnamese": "Lều Thợ xây"
+        },
+        {
+            "english": "Monolith",
+            "vietnamese": "Tháp Nguyên khối"
+        },
+        {
+            "english": "Ricochet Cannon",
+            "vietnamese": "Pháo Bật nảy"
+        },
+        {
+            "english": "Multi-Archer Tower",
+            "vietnamese": "Tháp Cung Đa Mục tiêu"
+        },
+        {
+            "english": "Walls",
+            "vietnamese": "Tường thành"
+        }
+    ],
+    "traps": [
+        {
+            "english": "Bomb",
+            "vietnamese": "Bom"
+        },
+        {
+            "english": "Spring Trap",
+            "vietnamese": "Bẫy Bật"
+        },
+        {
+            "english": "Giant Bomb",
+            "vietnamese": "Bom Khổng lồ"
+        },
+        {
+            "english": "Air Bomb",
+            "vietnamese": "Bom Không khí"
+        },
+        {
+            "english": "Seeking Air Mine",
+            "vietnamese": "Mìn Bay Tìm mục tiêu"
+        },
+        {
+            "english": "Skeleton Trap",
+            "vietnamese": "Bẫy Bộ xương"
+        },
+        {
+            "english": "Tornado Trap",
+            "vietnamese": "Bẫy Lốc xoáy"
+        }
+    ],
+    "elixir_troops": [
+        {
+            "english": "Barbarian",
+            "vietnamese": "Barbarian"
+        },
+        {
+            "english": "Archer",
+            "vietnamese": "Archer"
+        },
+        {
+            "english": "Giant",
+            "vietnamese": "Khổng lồ"
+        },
+        {
+            "english": "Goblin",
+            "vietnamese": "Yêu tinh"
+        },
+        {
+            "english": "Wall Breaker",
+            "vietnamese": "Kẻ Phá tường"
+        },
+        {
+            "english": "Balloon",
+            "vietnamese": "Khinh khí cầu"
+        },
+        {
+            "english": "Wizard",
+            "vietnamese": "Phù thủy"
+        },
+        {
+            "english": "Healer",
+            "vietnamese": "Thiên sứ"
+        },
+        {
+            "english": "Dragon",
+            "vietnamese": "Rồng"
+        },
+        {
+            "english": "P.E.K.K.A",
+            "vietnamese": "P.E.K.K.A"
+        },
+        {
+            "english": "Baby Dragon",
+            "vietnamese": "Rồng con"
+        },
+        {
+            "english": "Miner",
+            "vietnamese": "Thợ mỏ"
+        },
+        {
+            "english": "Electro Dragon",
+            "vietnamese": "Rồng Điện"
+        },
+        {
+            "english": "Yeti",
+            "vietnamese": "Người tuyết Yeti"
+        },
+        {
+            "english": "Dragon Rider",
+            "vietnamese": "Kỵ sĩ Rồng"
+        },
+        {
+            "english": "Electro Titan",
+            "vietnamese": "Titan Điện"
+        },
+        {
+            "english": "Root Rider",
+            "vietnamese": "Kỵ sĩ Rễ cây"
+        }
+    ],
+    "dark_elixir_troops": [
+        {
+            "english": "Minion",
+            "vietnamese": "Minion"
+        },
+        {
+            "english": "Hog Rider",
+            "vietnamese": "Kỵ sĩ Lợn"
+        },
+        {
+            "english": "Valkyrie",
+            "vietnamese": "Valkyrie"
+        },
+        {
+            "english": "Golem",
+            "vietnamese": "Golem"
+        },
+        {
+            "english": "Witch",
+            "vietnamese": "Phù thủy gọi cốt"
+        },
+        {
+            "english": "Lava Hound",
+            "vietnamese": "Chó Nham thạch"
+        },
+        {
+            "english": "Bowler",
+            "vietnamese": "Thợ ném đá"
+        },
+        {
+            "english": "Ice Golem",
+            "vietnamese": "Golem Băng"
+        },
+        {
+            "english": "Headhunter",
+            "vietnamese": "Thợ săn Tướng"
+        },
+        {
+            "english": "Apprentice Warden",
+            "vietnamese": "Quản giáo Tập sự"
+        }
+    ],
+    "spells": [
+        {
+            "english": "Lightning Spell",
+            "vietnamese": "Phép Sét"
+        },
+        {
+            "english": "Healing Spell",
+            "vietnamese": "Phép Hồi máu"
+        },
+        {
+            "english": "Rage Spell",
+            "vietnamese": "Phép Cuồng nộ"
+        },
+        {
+            "english": "Jump Spell",
+            "vietnamese": "Phép Nhảy"
+        },
+        {
+            "english": "Freeze Spell",
+            "vietnamese": "Phép Băng"
+        },
+        {
+            "english": "Clone Spell",
+            "vietnamese": "Phép Nhân bản"
+        },
+        {
+            "english": "Invisibility Spell",
+            "vietnamese": "Phép Tàng hình"
+        },
+        {
+            "english": "Recall Spell",
+            "vietnamese": "Phép Thu hồi"
+        },
+        {
+            "english": "Poison Spell",
+            "vietnamese": "Phép Độc"
+        },
+        {
+            "english": "Earthquake Spell",
+            "vietnamese": "Phép Động đất"
+        },
+        {
+            "english": "Haste Spell",
+            "vietnamese": "Phép Tốc độ"
+        },
+        {
+            "english": "Skeleton Spell",
+            "vietnamese": "Phép Bộ xương"
+        },
+        {
+            "english": "Bat Spell",
+            "vietnamese": "Phép Dơi"
+        },
+        {
+            "english": "Overgrowth Spell",
+            "vietnamese": "Phép Mọc tràn"
+        }
+    ],
+    "siege_machines": [
+        {
+            "english": "Wall Wrecker",
+            "vietnamese": "Xe Công thành"
+        },
+        {
+            "english": "Battle Blimp",
+            "vietnamese": "Khinh Khí Cầu Chiến"
+        },
+        {
+            "english": "Stone Slammer",
+            "vietnamese": "Tàu Phá đá"
+        },
+        {
+            "english": "Siege Barracks",
+            "vietnamese": "Trại lính Công thành"
+        },
+        {
+            "english": "Log Launcher",
+            "vietnamese": "Máy Phóng Khúc gỗ"
+        },
+        {
+            "english": "Flame Flinger",
+            "vietnamese": "Máy Phóng Lửa"
+        },
+        {
+            "english": "Battle Drill",
+            "vietnamese": "Xe Mũi khoan"
+        }
+    ],
+    "heroes_and_pets": [
+        {
+            "english": "Barbarian King",
+            "vietnamese": "Vua Barbarian"
+        },
+        {
+            "english": "Archer Queen",
+            "vietnamese": "Nữ hoàng Archer"
+        },
+        {
+            "english": "Grand Warden",
+            "vietnamese": "Quản Giáo"
+        },
+        {
+            "english": "Royal Champion",
+            "vietnamese": "Tướng Hoàng gia"
+        },
+        {
+            "english": "Battle Machine",
+            "vietnamese": "Cỗ máy Chiến đấu"
+        },
+        {
+            "english": "Battle Copter",
+            "vietnamese": "Trực thăng Chiến đấu"
+        },
+        {
+            "english": "L.A.S.S",
+            "vietnamese": "L.A.S.S"
+        },
+        {
+            "english": "Electro Owl",
+            "vietnamese": "Cú Điện"
+        },
+        {
+            "english": "Mighty Yak",
+            "vietnamese": "Yak Khổng lồ"
+        },
+        {
+            "english": "Unicorn",
+            "vietnamese": "Kỳ lân"
+        },
+        {
+            "english": "Frosty",
+            "vietnamese": "Frosty"
+        },
+        {
+            "english": "Diggy",
+            "vietnamese": "Diggy"
+        },
+        {
+            "english": "Poison Lizard",
+            "vietnamese": "Thằn lằn Độc"
+        },
+        {
+            "english": "Phoenix",
+            "vietnamese": "Phượng hoàng"
+        },
+        {
+            "english": "Spirit Fox",
+            "vietnamese": "Cáo Linh hồn"
+        },
+        {
+            "english": "Angry Jelly",
+            "vietnamese": "Sứa Tức giận"
+        }
+    ],
+    "hero_equipments": [
+        {
+            "english": "Barbarian Puppet",
+            "vietnamese": "Rối Barbarian"
+        },
+        {
+            "english": "Rage Vial",
+            "vietnamese": "Lọ Cuồng nộ"
+        },
+        {
+            "english": "Earthquake Boots",
+            "vietnamese": "Giày Động đất"
+        },
+        {
+            "english": "Vampstache",
+            "vietnamese": "Râu Hút máu"
+        },
+        {
+            "english": "Giant Gauntlet",
+            "vietnamese": "Găng tay Khổng lồ"
+        },
+        {
+            "english": "Archer Puppet",
+            "vietnamese": "Rối Archer"
+        },
+        {
+            "english": "Invisibility Vial",
+            "vietnamese": "Lọ Tàng hình"
+        },
+        {
+            "english": "Giant Arrow",
+            "vietnamese": "Mũi tên Khổng lồ"
+        },
+        {
+            "english": "Healer Puppet",
+            "vietnamese": "Rối Thiên sứ"
+        },
+        {
+            "english": "Frozen Arrow",
+            "vietnamese": "Mũi tên Băng"
+        },
+        {
+            "english": "Eternal Tome",
+            "vietnamese": "Sách Vĩnh cửu"
+        },
+        {
+            "english": "Life Gem",
+            "vietnamese": "Đá Sự sống"
+        },
+        {
+            "english": "Healing Tome",
+            "vietnamese": "Sách Hồi máu"
+        },
+        {
+            "english": "Rage Gem",
+            "vietnamese": "Đá Cuồng nộ"
+        },
+        {
+            "english": "Fireball",
+            "vietnamese": "Quả cầu Lửa"
+        },
+        {
+            "english": "Seeking Shield",
+            "vietnamese": "Khiên Tìm diệt"
+        },
+        {
+            "english": "Royal Gem",
+            "vietnamese": "Đá Hoàng gia"
+        },
+        {
+            "english": "Hog Rider Puppet",
+            "vietnamese": "Rối Kỵ sĩ Lợn"
+        },
+        {
+            "english": "Haste Vial",
+            "vietnamese": "Lọ Tốc độ"
+        }
+    ],
+    "magic_items_and_ores": [
+        {
+            "english": "Shiny Ore",
+            "vietnamese": "Quặng Sáng bóng"
+        },
+        {
+            "english": "Glowy Ore",
+            "vietnamese": "Quặng Rực rỡ"
+        },
+        {
+            "english": "Starry Ore",
+            "vietnamese": "Quặng Lấp lánh"
+        },
+        {
+            "english": "Book of Heroes",
+            "vietnamese": "Sách Tướng"
+        },
+        {
+            "english": "Book of Building",
+            "vietnamese": "Sách Xây dựng"
+        },
+        {
+            "english": "Book of Spells",
+            "vietnamese": "Sách Thần chú"
+        },
+        {
+            "english": "Book of Fighting",
+            "vietnamese": "Sách Chiến đấu"
+        },
+        {
+            "english": "Book of Everything",
+            "vietnamese": "Sách Vạn năng"
+        },
+        {
+            "english": "Hammer of Heroes",
+            "vietnamese": "Búa Tướng"
+        },
+        {
+            "english": "Hammer of Building",
+            "vietnamese": "Búa Xây dựng"
+        },
+        {
+            "english": "Hammer of Spells",
+            "vietnamese": "Búa Thần chú"
+        },
+        {
+            "english": "Hammer of Fighting",
+            "vietnamese": "Búa Chiến đấu"
+        },
+        {
+            "english": "Research Potion",
+            "vietnamese": "Lọ thuốc Nghiên cứu"
+        },
+        {
+            "english": "Builder Potion",
+            "vietnamese": "Lọ thuốc Thợ xây"
+        },
+        {
+            "english": "Training Potion",
+            "vietnamese": "Lọ thuốc Huấn luyện"
+        },
+        {
+            "english": "Hero Potion",
+            "vietnamese": "Lọ thuốc Tướng"
+        },
+        {
+            "english": "Power Potion",
+            "vietnamese": "Lọ thuốc Sức mạnh"
+        },
+        {
+            "english": "Super Potion",
+            "vietnamese": "Lọ thuốc Siêu cấp"
+        },
+        {
+            "english": "Rune of Gold",
+            "vietnamese": "Cổ ngữ Vàng"
+        },
+        {
+            "english": "Rune of Elixir",
+            "vietnamese": "Cổ ngữ Tiên dược"
+        },
+        {
+            "english": "Rune of Dark Elixir",
+            "vietnamese": "Cổ ngữ Tiên dược Hắc ám"
+        },
+        {
+            "english": "Wall Ring",
+            "vietnamese": "Nhẫn Tường"
+        }
+    ]
+}

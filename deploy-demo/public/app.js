@@ -223,10 +223,9 @@ function renderDetails() {
   renderDetailTable("homeDetailBody", homeItems);
   renderDetailTable("builderDetailBody", builderItems);
 
-  const allSummary = summarizeItems(detailItems);
   const homeSummary = summarizeItems(homeItems);
   const builderSummary = summarizeItems(builderItems);
-  renderSummary(allSummary);
+  renderSummary(homeSummary);
 
   $("homeDetailCount").textContent = homeItems.length;
   $("builderDetailCount").textContent = builderItems.length;
@@ -295,6 +294,8 @@ function summarizeItems(items) {
     currentCount: 0,
     remainingLevels: 0,
     totalTimeSec: 0,
+    parallelTimeSec: 0,
+    durations: [],
     costs: {},
   };
   for (const item of items) {
@@ -302,11 +303,13 @@ function summarizeItems(items) {
     summary.remainingLevels +=
       Number(item.remainingLevels || 0) * Number(item.count || 1);
     summary.totalTimeSec += Number(item.totalTimeSec || 0);
+    summary.durations.push(...(item.remainingDurations || []));
     for (const [resource, value] of Object.entries(item.costs || {})) {
       summary.costs[resource] =
         (summary.costs[resource] || 0) + Number(value || 0);
     }
   }
+  summary.parallelTimeSec = parallelDuration(summary.durations, 5);
   return summary;
 }
 
@@ -315,6 +318,7 @@ function renderSummary(summary) {
   $("sumCount").textContent = Number(summary.currentCount).toLocaleString();
   $("sumLevels").textContent = Number(summary.remainingLevels).toLocaleString();
   $("sumTime").textContent = formatDuration(summary.totalTimeSec);
+  $("sumParallelTime").textContent = formatDuration(summary.parallelTimeSec);
 
   const tbody = $("resourceSummaryBody");
   tbody.innerHTML = "";
@@ -330,7 +334,7 @@ function renderSummary(summary) {
 }
 
 function summaryLabel(summary) {
-  return `${Number(summary.currentCount).toLocaleString()} hiện có · ${formatDuration(summary.totalTimeSec)}`;
+  return `${Number(summary.currentCount).toLocaleString()} hiện có · ${formatDuration(summary.parallelTimeSec)} với 5 thợ`;
 }
 
 function renderServer() {

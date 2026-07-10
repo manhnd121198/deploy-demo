@@ -129,6 +129,13 @@ function parseVillageItems(jsonText, catalog) {
       const remainingLevels = availableLevels.filter((level) => Number(level.level || 0) > currentLevel);
       const nextLevel = remainingLevels[0] || null;
       const totalTimeSec = remainingLevels.reduce((sum, level) => sum + Number(level.timeSec || 0) * count, 0);
+      const remainingDurations = [];
+      for (const level of remainingLevels) {
+        const duration = Number(level.timeSec || 0);
+        for (let i = 0; i < count; i += 1) {
+          if (duration > 0) remainingDurations.push(duration);
+        }
+      }
       const costs = {};
       for (const level of remainingLevels) {
         const levelCosts = level.costs && typeof level.costs === "object"
@@ -156,6 +163,7 @@ function parseVillageItems(jsonText, catalog) {
         nextLevel,
         remainingLevels: remainingLevels.length,
         totalTimeSec,
+        remainingDurations,
         costs,
         timer: Number(raw.timer || 0),
         finishAt: raw.timer && timestamp ? timestamp + Number(raw.timer) : 0,
@@ -233,4 +241,18 @@ function formatResource(resource) {
     Unknown: "Không rõ",
   };
   return names[resource] || resource;
+}
+
+function parallelDuration(durations, workerCount) {
+  const workers = Array.from({ length: Math.max(1, Math.floor(workerCount || 1)) }, () => 0);
+  const jobs = (durations || []).filter((duration) => Number(duration || 0) > 0);
+  jobs.sort((a, b) => b - a);
+  for (const duration of jobs) {
+    let index = 0;
+    for (let i = 1; i < workers.length; i += 1) {
+      if (workers[i] < workers[index]) index = i;
+    }
+    workers[index] += Number(duration);
+  }
+  return Math.max(0, ...workers);
 }
