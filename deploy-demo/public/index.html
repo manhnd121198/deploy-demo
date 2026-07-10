@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CoC Builder Alarm</title>
-  <link rel="stylesheet" href="styles.css?v=5" />
+  <link rel="stylesheet" href="styles.css?v=6" />
 </head>
 <body>
   <div class="wrap">
@@ -12,7 +12,7 @@
 
     <!-- Màn đăng nhập -->
     <div id="loginView">
-      <p class="sub">Đăng nhập để quản lý lịch gửi Google Chat của bạn (mỗi tài khoản có data riêng).</p>
+      <p class="sub">Đăng nhập để quản lý lịch gửi tin nhắn của bạn (mỗi tài khoản có data riêng).</p>
       <label for="acctName">Tên tài khoản</label>
       <input id="acctName" type="text" autocomplete="username" placeholder="vd: lang-chinh" />
       <label for="acctPin">Mã PIN</label>
@@ -32,10 +32,39 @@
         <input id="speed10x" type="checkbox" role="switch" />
       </label>
 
-      <label for="webhook">Google Chat webhook URL</label>
-      <input id="webhook" type="text" autocomplete="off"
-             placeholder="https://chat.googleapis.com/v1/spaces/..." />
-      <button id="testWebhookBtn" class="ghost fullw">Test webhook (gửi tin thử)</button>
+      <label>Kênh gửi</label>
+      <div class="radio-row">
+        <label><input type="radio" name="channel" value="google" checked /> Google Chat</label>
+        <label><input type="radio" name="channel" value="telegram" /> Telegram</label>
+      </div>
+
+      <div id="googleConfig">
+        <label for="webhook">Google Chat webhook URL</label>
+        <input id="webhook" type="text" autocomplete="off"
+               placeholder="https://chat.googleapis.com/v1/spaces/..." />
+      </div>
+
+      <div id="telegramConfig" hidden>
+        <label for="telegramBotToken">Telegram bot token</label>
+        <input id="telegramBotToken" type="text" autocomplete="off"
+               placeholder="123456789:ABC..." />
+        <label for="telegramChatId">Telegram chat id</label>
+        <input id="telegramChatId" type="text" autocomplete="off"
+               placeholder="123456789 hoặc -100..." />
+        <details class="help">
+          <summary>Hướng dẫn tạo Telegram bot và lấy token</summary>
+          <ol>
+            <li>Mở Telegram, tìm <b>@BotFather</b>.</li>
+            <li>Gửi lệnh <code>/newbot</code>, đặt tên bot và username kết thúc bằng <code>bot</code>.</li>
+            <li>BotFather trả về token dạng <code>123456789:ABC...</code>, dán vào ô bot token.</li>
+            <li>Mở bot vừa tạo, bấm Start hoặc gửi một tin nhắn bất kỳ cho bot.</li>
+            <li>Mở <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> trên trình duyệt.</li>
+            <li>Tìm trường <code>chat.id</code> trong JSON, dán vào ô chat id.</li>
+          </ol>
+        </details>
+      </div>
+
+      <button id="testWebhookBtn" class="ghost fullw">Test kênh gửi</button>
 
       <label for="json">Dán JSON làng vào đây</label>
       <textarea id="json" rows="8" placeholder='{"timestamp": 1783064500, "buildings": [ ... ]}'></textarea>
@@ -54,7 +83,7 @@
             <tbody id="parsedBody"></tbody>
           </table>
         </div>
-        <button id="scheduleBtn" class="primary">Đặt gửi Chat tất cả</button>
+        <button id="scheduleBtn" class="primary">Đặt gửi tất cả</button>
       </div>
 
       <div class="card">
@@ -75,7 +104,7 @@
 
   <div id="toast"></div>
 
-  <script src="parser.js?v=5"></script>
-  <script src="app.js?v=5"></script>
+  <script src="parser.js?v=6"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

@@ -20,4 +20,15 @@ Create a Deno Deploy project with:
 - Environment variable: `AUTH_SECRET`
 - Deploy from the GitHub repository so Deno Deploy includes files in `public/`.
 
-After deploy, create a new account in the app, paste the Google Chat webhook URL and village JSON, then schedule tasks.
+After deploy, create a new account in the app, choose Google Chat or Telegram, enter the channel config and village JSON, then schedule tasks.
+
+## Telegram Bot
+
+1. Open Telegram and search for `@BotFather`.
+2. Send `/newbot`.
+3. Follow BotFather prompts. The bot username must end with `bot`.
+4. Copy the token BotFather returns, for example `123456789:ABC...`.
+5. Open your new bot and send it any message.
+6. Open `https://api.telegram.org/bot<TOKEN>/getUpdates`.
+7. Copy `chat.id` from the JSON response.
+8. Paste the token and chat id into the app, then press `Test kênh gửi`.

@@ -8,6 +8,7 @@ let token = localStorage.getItem(LS_TOKEN) || "";
 let account = "";
 let parsed = []; // việc parse ở client, chưa gửi server
 let serverTasks = []; // việc đã lên lịch trên server (giữ ở client để hiện ngay)
+let channel = "google";
 let speed10x = false;
 let clockBaseSec = 0;
 let clockBaseMs = Date.now();
@@ -99,12 +100,24 @@ async function enterApp() {
   $("appView").hidden = false;
   parsed = [];
   renderParsed();
-  const acct = await apiGet("/api/account"); // xác thực token + lấy webhook đã lưu
+  const acct = await apiGet("/api/account"); // xác thực token + lấy cấu hình đã lưu
   account = acct.name;
   $("who").textContent = account;
+  setChannel(acct.channel || "google");
   $("webhook").value = acct.webhookUrl || "";
+  $("telegramBotToken").value = acct.telegramBotToken || "";
+  $("telegramChatId").value = acct.telegramChatId || "";
   $("json").value = acct.json || "";
   await loadServer();
+}
+
+function setChannel(value) {
+  channel = value === "telegram" ? "telegram" : "google";
+  for (const input of document.querySelectorAll('input[name="channel"]')) {
+    input.checked = input.value === channel;
+  }
+  $("googleConfig").hidden = channel !== "google";
+  $("telegramConfig").hidden = channel !== "telegram";
 }
 
 // ---- Bảng ----
@@ -176,8 +189,11 @@ async function loadServer() {
 }
 
 async function scheduleAll() {
-  const webhook = $("webhook").value.trim();
-  if (!webhook) return toast("Hãy nhập Google Chat webhook URL.");
+  const config = channelPayload();
+  if (channel === "google" && !config.webhookUrl) return toast("Hãy nhập Google Chat webhook URL.");
+  if (channel === "telegram" && (!config.telegramBotToken || !config.telegramChatId)) {
+    return toast("Hãy nhập Telegram bot token và chat id.");
+  }
   if (parsed.length === 0) return toast("Chưa có việc nào để đặt.");
   const tasks = parsed.map((t) => ({
     finishAt: t.finishAt,
@@ -185,7 +201,7 @@ async function scheduleAll() {
     text: `${t.label} đã xong! (${finishClock(t.finishAt)})`,
   }));
   try {
-    const res = await apiPost("/api/schedule", { webhookUrl: webhook, tasks });
+    const res = await apiPost("/api/schedule", { ...config, tasks });
     // API thay toàn bộ lịch cũ bằng lịch mới; dùng kết quả trả về để hiện ngay.
     serverTasks = res.tasks || [];
     renderServer();
@@ -207,27 +223,39 @@ async function cancelAll() {
   }
 }
 
-// Gửi 1 tin thử tới webhook để kiểm tra.
+// Gửi 1 tin thử tới kênh đang chọn để kiểm tra.
 async function testWebhook() {
-  const webhook = $("webhook").value.trim();
-  if (!webhook) return toast("Hãy nhập Google Chat webhook URL.");
+  const config = channelPayload();
+  if (channel === "google" && !config.webhookUrl) return toast("Hãy nhập Google Chat webhook URL.");
+  if (channel === "telegram" && (!config.telegramBotToken || !config.telegramChatId)) {
+    return toast("Hãy nhập Telegram bot token và chat id.");
+  }
   toast("Đang gửi tin thử...");
   try {
-    await apiPost("/api/test-webhook", { webhookUrl: webhook });
-    toast("Đã gửi! Kiểm tra Google Chat xem có tin thử chưa.");
+    await apiPost("/api/test-webhook", config);
+    toast("Đã gửi! Kiểm tra kênh nhận tin xem có tin thử chưa.");
   } catch (e) {
     toast("Test lỗi: " + e.message);
   }
 }
 
-// Lưu webhook về server khi người dùng đổi (để lần sau tự điền).
-async function saveWebhook() {
+// Lưu cấu hình gửi về server khi người dùng đổi (để lần sau tự điền).
+async function saveChannelConfig() {
   if (!token) return;
   try {
-    await apiPost("/api/account", { webhookUrl: $("webhook").value.trim() });
+    await apiPost("/api/account", channelPayload());
   } catch {
     /* im lặng: sẽ lưu lại khi đặt lịch */
   }
+}
+
+function channelPayload() {
+  return {
+    channel,
+    webhookUrl: $("webhook").value.trim(),
+    telegramBotToken: $("telegramBotToken").value.trim(),
+    telegramChatId: $("telegramChatId").value.trim(),
+  };
 }
 
 // Lưu JSON về server (theo tài khoản) để đăng nhập máy khác vẫn còn.
@@ -268,10 +296,18 @@ $("reloadBtn").onclick = doParse;
 $("scheduleBtn").onclick = scheduleAll;
 $("refreshBtn").onclick = loadServer;
 $("cancelAllBtn").onclick = cancelAll;
-$("webhook").onchange = saveWebhook;
+$("webhook").onchange = saveChannelConfig;
+$("telegramBotToken").onchange = saveChannelConfig;
+$("telegramChatId").onchange = saveChannelConfig;
 $("json").onchange = () => saveJson($("json").value);
 $("clearJsonBtn").onclick = clearJson;
 $("testWebhookBtn").onclick = testWebhook;
+for (const input of document.querySelectorAll('input[name="channel"]')) {
+  input.onchange = () => {
+    setChannel(input.value);
+    saveChannelConfig();
+  };
+}
 $("speed10x").onchange = () => {
   speed10x = $("speed10x").checked;
   resetClock();

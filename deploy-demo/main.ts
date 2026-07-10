@@ -9,7 +9,10 @@ const BUCKET_LOOKBACK_MINUTES = 3;
 type Account = {
   salt: string;
   hash: string;
+  channel?: "google" | "telegram";
   webhookUrl?: string;
+  telegramBotToken?: string;
+  telegramChatId?: string;
   json?: string;
   createdAt: number;
 };
@@ -20,7 +23,10 @@ type Task = {
   label: string;
   finishAt: number;
   text: string;
+  channel?: "google" | "telegram";
   webhookUrl: string;
+  telegramBotToken?: string;
+  telegramChatId?: string;
   attempts: number;
   bucket: number;
 };
@@ -31,7 +37,7 @@ type PublicTask = {
   finishAt: number;
 };
 
-Deno.cron("dispatch Google Chat tasks", "* * * * *", dispatchDue);
+Deno.cron("dispatch message tasks", "* * * * *", dispatchDue);
 
 Deno.serve(async (request) => {
   const url = new URL(request.url);
@@ -68,17 +74,26 @@ async function handleApi(request: Request, url: URL): Promise<Response> {
 
     if (path === "/api/account" && method === "POST") {
       const body = await request.json();
-      const fields: { webhookUrl?: string; json?: string } = {};
+      const fields: {
+        channel?: "google" | "telegram";
+        webhookUrl?: string;
+        telegramBotToken?: string;
+        telegramChatId?: string;
+        json?: string;
+      } = {};
+      if ("channel" in body) fields.channel = parseChannel(body.channel);
       if ("webhookUrl" in body) fields.webhookUrl = String(body.webhookUrl || "").trim();
+      if ("telegramBotToken" in body) fields.telegramBotToken = String(body.telegramBotToken || "").trim();
+      if ("telegramChatId" in body) fields.telegramChatId = String(body.telegramChatId || "").trim();
       if ("json" in body) fields.json = String(body.json || "");
       await updateAccount(name, fields);
       return json({ ok: true });
     }
 
     if (path === "/api/test-webhook" && method === "POST") {
-      const { webhookUrl } = await request.json();
-      const result = await testWebhook(webhookUrl);
-      await updateAccount(name, { webhookUrl: String(webhookUrl || "").trim() });
+      const body = await request.json();
+      const result = await testChannel(body);
+      await updateAccount(name, accountFieldsFromBody(body));
       return json(result);
     }
 
@@ -89,7 +104,7 @@ async function handleApi(request: Request, url: URL): Promise<Response> {
     if (path === "/api/schedule" && method === "POST") {
       const body = await request.json();
       const result = await schedule(name, body);
-      await updateAccount(name, { webhookUrl: String(body.webhookUrl || "").trim() });
+      await updateAccount(name, accountFieldsFromBody(body));
       return json(result);
     }
 
@@ -113,7 +128,10 @@ async function register(rawName: unknown, pin: unknown): Promise<string> {
   await kv.set(["acct", name], {
     salt,
     hash,
+    channel: "google",
     webhookUrl: "",
+    telegramBotToken: "",
+    telegramChatId: "",
     json: "",
     createdAt: Math.floor(Date.now() / 1000),
   } satisfies Account);
@@ -132,15 +150,31 @@ async function login(rawName: unknown, pin: unknown): Promise<string> {
 
 async function getAccount(name: string) {
   const acct = await loadAccount(name);
-  return { name, webhookUrl: acct.webhookUrl || "", json: acct.json || "" };
+  return {
+    name,
+    channel: acct.channel || "google",
+    webhookUrl: acct.webhookUrl || "",
+    telegramBotToken: acct.telegramBotToken || "",
+    telegramChatId: acct.telegramChatId || "",
+    json: acct.json || "",
+  };
 }
 
 async function updateAccount(
   name: string,
-  fields: { webhookUrl?: string; json?: string },
+  fields: {
+    channel?: "google" | "telegram";
+    webhookUrl?: string;
+    telegramBotToken?: string;
+    telegramChatId?: string;
+    json?: string;
+  },
 ): Promise<void> {
   const acct = await loadAccount(name);
+  if (typeof fields.channel === "string") acct.channel = fields.channel;
   if (typeof fields.webhookUrl === "string") acct.webhookUrl = fields.webhookUrl;
+  if (typeof fields.telegramBotToken === "string") acct.telegramBotToken = fields.telegramBotToken;
+  if (typeof fields.telegramChatId === "string") acct.telegramChatId = fields.telegramChatId;
   if (typeof fields.json === "string") acct.json = fields.json.slice(0, 200000);
   await kv.set(["acct", name], acct);
 }
@@ -152,11 +186,7 @@ async function loadAccount(name: string): Promise<Account> {
 }
 
 async function schedule(name: string, body: any) {
-  const webhookUrl = String(body.webhookUrl || "").trim();
-  if (!webhookUrl) throw new Error("Thiếu webhookUrl");
-  if (!GOOGLE_CHAT_RE.test(webhookUrl)) {
-    throw new Error("webhookUrl phải là Google Chat incoming webhook");
-  }
+  const target = parseTarget(body);
 
   const pending: Array<{ finishAt: number; text: string; label: string }> = [];
   const inputTasks = Array.isArray(body.tasks) ? body.tasks : [];
@@ -175,7 +205,10 @@ async function schedule(name: string, body: any) {
     label: t.label,
     finishAt: t.finishAt,
     text: t.text,
-    webhookUrl,
+    channel: target.channel,
+    webhookUrl: target.webhookUrl,
+    telegramBotToken: target.telegramBotToken,
+    telegramChatId: target.telegramChatId,
     attempts: 0,
     bucket: bucketFor(t.finishAt),
   }));
@@ -211,22 +244,9 @@ async function cancel(name: string, body: any): Promise<{ cancelled: number }> {
   return { cancelled: 1 };
 }
 
-async function testWebhook(webhookUrl: unknown): Promise<{ ok: true }> {
-  const url = String(webhookUrl || "").trim();
-  if (!GOOGLE_CHAT_RE.test(url)) {
-    throw new Error("webhookUrl phải là Google Chat incoming webhook");
-  }
-  let r: Response;
-  try {
-    r = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json; charset=UTF-8" },
-      body: JSON.stringify({ text: "Test từ CoC Builder Alarm — webhook hoạt động!" }),
-    });
-  } catch (e) {
-    throw new Error("Không gọi được webhook: " + errorMessage(e));
-  }
-  if (!r.ok) throw new Error("Webhook trả về HTTP " + r.status);
+async function testChannel(body: any): Promise<{ ok: true }> {
+  const target = parseTarget(body);
+  await sendTarget(target, "Test từ CoC Builder Alarm — kênh gửi hoạt động!");
   return { ok: true };
 }
 
@@ -244,7 +264,7 @@ async function dispatchDue(): Promise<void> {
         continue;
       }
 
-      if (await sendWebhook(task.webhookUrl, task.text)) {
+      if (await sendTask(task)) {
         await removeFromIndex(task.name, task.key);
       } else {
         task.attempts = (task.attempts || 0) + 1;
@@ -340,23 +360,94 @@ function toStoredTask(task: Task): Task {
     label: task.label,
     finishAt: task.finishAt,
     text: task.text,
+    channel: task.channel || "google",
     webhookUrl: task.webhookUrl,
+    telegramBotToken: task.telegramBotToken || "",
+    telegramChatId: task.telegramChatId || "",
     attempts: task.attempts || 0,
     bucket: task.bucket ?? bucketFor(task.finishAt),
   };
 }
 
-async function sendWebhook(webhookUrl: string, text: string): Promise<boolean> {
+function parseChannel(raw: unknown): "google" | "telegram" {
+  return raw === "telegram" ? "telegram" : "google";
+}
+
+function accountFieldsFromBody(body: any) {
+  return {
+    channel: parseChannel(body.channel),
+    webhookUrl: String(body.webhookUrl || "").trim(),
+    telegramBotToken: String(body.telegramBotToken || "").trim(),
+    telegramChatId: String(body.telegramChatId || "").trim(),
+  };
+}
+
+function parseTarget(body: any): {
+  channel: "google" | "telegram";
+  webhookUrl: string;
+  telegramBotToken: string;
+  telegramChatId: string;
+} {
+  const channel = parseChannel(body.channel);
+  const webhookUrl = String(body.webhookUrl || "").trim();
+  const telegramBotToken = String(body.telegramBotToken || "").trim();
+  const telegramChatId = String(body.telegramChatId || "").trim();
+
+  if (channel === "google") {
+    if (!webhookUrl) throw new Error("Thiếu Google Chat webhook URL");
+    if (!GOOGLE_CHAT_RE.test(webhookUrl)) {
+      throw new Error("webhookUrl phải là Google Chat incoming webhook");
+    }
+  } else {
+    if (!telegramBotToken) throw new Error("Thiếu Telegram bot token");
+    if (!telegramChatId) throw new Error("Thiếu Telegram chat id");
+  }
+
+  return { channel, webhookUrl, telegramBotToken, telegramChatId };
+}
+
+async function sendTask(task: Task): Promise<boolean> {
   try {
-    const r = await fetch(webhookUrl, {
+    await sendTarget(
+      {
+        channel: task.channel || "google",
+        webhookUrl: task.webhookUrl,
+        telegramBotToken: task.telegramBotToken || "",
+        telegramChatId: task.telegramChatId || "",
+      },
+      task.text,
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function sendTarget(
+  target: {
+    channel: "google" | "telegram";
+    webhookUrl: string;
+    telegramBotToken: string;
+    telegramChatId: string;
+  },
+  text: string,
+): Promise<void> {
+  if (target.channel === "google") {
+    const r = await fetch(target.webhookUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json; charset=UTF-8" },
       body: JSON.stringify({ text }),
     });
-    return r.ok;
-  } catch {
-    return false;
+    if (!r.ok) throw new Error("Google Chat trả về HTTP " + r.status);
+    return;
   }
+
+  const r = await fetch(`https://api.telegram.org/bot${target.telegramBotToken}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=UTF-8" },
+    body: JSON.stringify({ chat_id: target.telegramChatId, text }),
+  });
+  if (!r.ok) throw new Error("Telegram trả về HTTP " + r.status);
 }
 
 function normalizeName(raw: unknown): string {
