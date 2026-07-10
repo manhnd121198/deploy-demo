@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Left to max preview</title>
+  <link rel="stylesheet" href="styles.css?v=8" />
+</head>
+<body>
+  <div class="wrap">
+    <h1>Left to max preview</h1>
+    <p class="sub">Dán JSON làng để xem thử mapping từng item. Trang này chỉ chạy local/static, không cần đăng nhập.</p>
+
+    <label for="json">Dán JSON làng vào đây</label>
+    <textarea id="json" rows="10" placeholder='{"timestamp": 1783064500, "buildings": [ ... ]}'></textarea>
+    <button id="parseBtn" class="primary">Parse detail</button>
+
+    <div id="detailCard" class="card" hidden>
+      <div class="row">
+        <h2>Left to max chi tiết (<span id="detailCount">0</span>)</h2>
+        <span id="catalogStatus" class="pill">Catalog</span>
+      </div>
+      <div class="table-wrap">
+        <table class="detail-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>ID</th>
+              <th>Nguồn</th>
+              <th>Lv</th>
+              <th>Còn</th>
+              <th>Next</th>
+              <th>Total</th>
+              <th>Đang nâng</th>
+            </tr>
+          </thead>
+          <tbody id="detailBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <script src="parser.js?v=8"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let catalog = { items: {} };
+
+    function toast(msg) {
+      const t = $("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 3200);
+    }
+
+    const esc = (s) =>
+      String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+    async function loadCatalog() {
+      try {
+        catalog = await fetch("data/catalog.json?v=2").then((r) => r.json());
+        $("catalogStatus").textContent = "Catalog OK";
+      } catch {
+        $("catalogStatus").textContent = "Không có catalog";
+      }
+    }
+
+    function renderDetails(items) {
+      const tbody = $("detailBody");
+      tbody.innerHTML = "";
+      for (const item of items) {
+        const tr = document.createElement("tr");
+        const levelText = item.maxLevel ? `${item.currentLevel}/${item.maxLevel}` : `${item.currentLevel}/?`;
+        const countText = item.count > 1 ? ` <span class="muted">x${item.count}</span>` : "";
+        const nextText = item.nextLevel
+          ? `Lv${item.nextLevel.level}: ${formatLevelCosts(item.nextLevel)} / ${formatDuration(item.nextLevel.timeSec)}`
+          : "-";
+        const runningText = item.finishAt ? finishClock(item.finishAt) : "-";
+        tr.innerHTML = `
+          <td>${esc(item.name)}${countText}${item.matched ? "" : ' <span class="warn">raw</span>'}</td>
+          <td>${esc(item.dataId)}</td>
+          <td>${esc(item.source)}</td>
+          <td>${levelText}</td>
+          <td>${item.remainingLevels}</td>
+          <td>${esc(nextText)}</td>
+          <td>${esc(formatCosts(item.costs))}<br><span class="muted">${formatDuration(item.totalTimeSec)}</span></td>
+          <td>${esc(runningText)}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+      $("detailCount").textContent = items.length;
+      $("detailCard").hidden = items.length === 0;
+    }
+
+    $("parseBtn").onclick = () => {
+      try {
+        const items = parseVillageItems($("json").value, catalog);
+        renderDetails(items);
+        if (items.length === 0) toast("Không thấy item nào trong JSON.");
+      } catch (e) {
+        renderDetails([]);
+        toast("JSON không hợp lệ: " + e.message);
+      }
+    };
+
+    loadCatalog();
+  </script>
+</body>
+</html>

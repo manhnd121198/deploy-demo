@@ -71,6 +71,7 @@ private fun MainScreen() {
     var nowSec by remember { mutableLongStateOf(controller.nowSec()) }
     var screen by remember { mutableStateOf(if (tasks.isEmpty()) Screen.Input else Screen.Preview) }
     var scheduled by remember { mutableStateOf(tasks.isNotEmpty()) }
+    var testingWebhook by remember { mutableStateOf(false) }
 
     fun toast(msg: String) = Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
 
@@ -110,6 +111,23 @@ private fun MainScreen() {
                     onJsonChange = { jsonText = it },
                     webhookUrl = webhookUrl,
                     onWebhookChange = { webhookUrl = it },
+                    testingWebhook = testingWebhook,
+                    onTestWebhook = {
+                        if (webhookUrl.isBlank()) {
+                            toast("Hãy nhập Google Chat webhook URL.")
+                            return@InputScreen
+                        }
+                        testingWebhook = true
+                        controller.saveInput(jsonText, webhookUrl)
+                        controller.testWebhook(webhookUrl) { result ->
+                            testingWebhook = false
+                            if (result.isSuccess) {
+                                toast("Đã gửi tin test. Kiểm tra Google Chat.")
+                            } else {
+                                toast("Test webhook lỗi: ${result.exceptionOrNull()?.message ?: "không rõ lỗi"}")
+                            }
+                        }
+                    },
                     onParse = { parseAndShow() }
                 )
 
@@ -166,6 +184,8 @@ private fun ColumnScope.InputScreen(
     onJsonChange: (String) -> Unit,
     webhookUrl: String,
     onWebhookChange: (String) -> Unit,
+    testingWebhook: Boolean,
+    onTestWebhook: () -> Unit,
     onParse: () -> Unit
 ) {
     OutlinedTextField(
@@ -182,6 +202,15 @@ private fun ColumnScope.InputScreen(
         },
         modifier = Modifier.fillMaxWidth()
     )
+    Spacer(Modifier.height(8.dp))
+
+    OutlinedButton(
+        onClick = onTestWebhook,
+        enabled = !testingWebhook,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(if (testingWebhook) "Đang gửi test..." else "Test Google Chat")
+    }
     Spacer(Modifier.height(8.dp))
 
     OutlinedTextField(

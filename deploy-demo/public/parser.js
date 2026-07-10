@@ -55,6 +55,92 @@ function parseVillage(jsonText, nowSec) {
   return tasks;
 }
 
+function parseVillageItems(jsonText, catalog) {
+  const root = JSON.parse(jsonText);
+  const timestamp = Number(root.timestamp || 0);
+  const items = catalog?.items || {};
+  const out = [];
+  let nextId = 1;
+  const sources = [
+    ["buildings", "Home Buildings"],
+    ["traps", "Home Traps"],
+    ["units", "Home Troops"],
+    ["siege_machines", "Siege Machines"],
+    ["heroes", "Home Heroes"],
+    ["spells", "Home Spells"],
+    ["pets", "Hero Pets"],
+    ["equipment", "Hero Equipment"],
+    ["guardians", "Guardians"],
+    ["helpers", "Helpers"],
+    ["buildings2", "Builder Buildings"],
+    ["traps2", "Builder Traps"],
+    ["units2", "Builder Troops"],
+    ["heroes2", "Builder Heroes"],
+  ];
+
+  function imageForLevel(item, currentLevel) {
+    const levels = Array.isArray(item?.levels) ? item.levels : [];
+    let selected = null;
+    for (const level of levels) {
+      const levelNo = Number(level.level || 0);
+      if (levelNo > currentLevel) break;
+      if (level.imageUrl) selected = level.imageUrl;
+    }
+    return selected || item?.imageUrl || "";
+  }
+
+  function addFromArray(arrayKey, sourceLabel) {
+    const arr = Array.isArray(root[arrayKey]) ? root[arrayKey] : [];
+    for (const raw of arr) {
+      if (!raw || typeof raw !== "object" || !("data" in raw)) continue;
+      const dataId = String(raw.data);
+      const item = items[dataId];
+      const currentLevel = Number(raw.lvl || 0);
+      const count = Math.max(1, Number(raw.cnt || 1));
+      const levels = Array.isArray(item?.levels) ? item.levels : [];
+      const maxLevel = levels.reduce((max, level) => Math.max(max, Number(level.level || 0)), 0);
+      const remainingLevels = levels.filter((level) => Number(level.level || 0) > currentLevel);
+      const nextLevel = remainingLevels[0] || null;
+      const totalTimeSec = remainingLevels.reduce((sum, level) => sum + Number(level.timeSec || 0) * count, 0);
+      const costs = {};
+      for (const level of remainingLevels) {
+        const levelCosts = level.costs && typeof level.costs === "object"
+          ? level.costs
+          : { [level.resource || "Unknown"]: Number(level.cost || 0) };
+        for (const [resource, value] of Object.entries(levelCosts)) {
+          const amount = Number(value || 0) * count;
+          if (amount > 0) costs[resource] = (costs[resource] || 0) + amount;
+        }
+      }
+      out.push({
+        id: nextId++,
+        dataId,
+        source: sourceLabel,
+        name: item?.name || `ID ${dataId}`,
+        displayName: item?.nameVi || item?.name || `ID ${dataId}`,
+        imageUrl: imageForLevel(item, currentLevel),
+        matched: Boolean(item),
+        currentLevel,
+        maxLevel,
+        count,
+        nextLevel,
+        remainingLevels: remainingLevels.length,
+        totalTimeSec,
+        costs,
+        timer: Number(raw.timer || 0),
+        finishAt: raw.timer && timestamp ? timestamp + Number(raw.timer) : 0,
+      });
+    }
+  }
+
+  for (const [arrayKey, sourceLabel] of sources) {
+    addFromArray(arrayKey, sourceLabel);
+  }
+
+  out.sort((a, b) => a.source.localeCompare(b.source) || a.name.localeCompare(b.name));
+  return out;
+}
+
 // Giờ xong đầy đủ dạng HH:mm dd/MM/yyyy theo múi giờ trình duyệt.
 function finishClock(finishAt) {
   const d = new Date(finishAt * 1000);
@@ -73,4 +159,30 @@ function remaining(finishAt, nowSec) {
   if (h > 0) return `${h}h${p(m)}m${p(sec)}s`;
   if (m > 0) return `${m}m${p(sec)}s`;
   return `${sec}s`;
+}
+
+function formatDuration(totalSec) {
+  let s = Math.max(0, Math.floor(totalSec || 0));
+  const d = Math.floor(s / 86400);
+  s %= 86400;
+  const h = Math.floor(s / 3600);
+  s %= 3600;
+  const m = Math.floor(s / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m`;
+  return `${s}s`;
+}
+
+function formatCosts(costs) {
+  const entries = Object.entries(costs || {}).filter(([, value]) => value > 0);
+  if (entries.length === 0) return "-";
+  return entries.map(([resource, value]) => `${resource}: ${Number(value).toLocaleString()}`).join(", ");
+}
+
+function formatLevelCosts(level) {
+  if (!level) return "-";
+  if (level.costs && typeof level.costs === "object") return formatCosts(level.costs);
+  if (!level.resource || !level.cost) return "-";
+  return `${level.resource}: ${Number(level.cost || 0).toLocaleString()}`;
 }

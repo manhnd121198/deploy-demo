@@ -1,7 +1,10 @@
 package vn.coc.builderalarm.ui
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import vn.coc.builderalarm.alarm.AlarmScheduler
+import vn.coc.builderalarm.alarm.GoogleChatWebhookClient
 import vn.coc.builderalarm.model.BuilderTask
 import vn.coc.builderalarm.parser.VillageJsonParser
 import vn.coc.builderalarm.storage.InputStore
@@ -27,6 +30,20 @@ class BuilderAlarmController(context: Context) {
     fun loadLastJson(): String = inputStore.loadJson()
 
     fun loadWebhookUrl(): String = inputStore.loadWebhookUrl()
+
+    fun testWebhook(webhookUrl: String, onResult: (Result<Unit>) -> Unit) {
+        Thread {
+            val result = runCatching {
+                GoogleChatWebhookClient.send(
+                    webhookUrl,
+                    "Test từ CoC Builder Alarm — webhook hoạt động!"
+                )
+            }
+            Handler(Looper.getMainLooper()).post {
+                onResult(result)
+            }
+        }.start()
+    }
 
     /** Đặt báo thức cho tất cả việc và lưu lại. */
     fun scheduleAll(tasks: List<BuilderTask>, webhookUrl: String) {

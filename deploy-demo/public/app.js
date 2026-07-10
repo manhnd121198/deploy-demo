@@ -7,7 +7,9 @@ const LS_TOKEN = "coc_token";
 let token = localStorage.getItem(LS_TOKEN) || "";
 let account = "";
 let parsed = []; // việc parse ở client, chưa gửi server
+let detailItems = [];
 let serverTasks = []; // việc đã lên lịch trên server (giữ ở client để hiện ngay)
+let catalog = null;
 let channel = "google";
 let speed10x = false;
 let clockBaseSec = 0;
@@ -108,6 +110,7 @@ async function enterApp() {
   $("telegramBotToken").value = acct.telegramBotToken || "";
   $("telegramChatId").value = acct.telegramChatId || "";
   $("json").value = acct.json || "";
+  await loadCatalog();
   await loadServer();
 }
 
@@ -121,6 +124,18 @@ function setChannel(value) {
 }
 
 // ---- Bảng ----
+async function loadCatalog() {
+  if (catalog) return catalog;
+  try {
+    catalog = await fetch("data/catalog.json?v=2").then((r) => r.json());
+    $("catalogStatus").textContent = "Catalog OK";
+  } catch {
+    catalog = { items: {} };
+    $("catalogStatus").textContent = "Không có catalog";
+  }
+  return catalog;
+}
+
 function renderTable(tbodyId, rows, onDelete) {
   const now = displayNowSec();
   const tbody = $(tbodyId);
@@ -155,13 +170,52 @@ function doParse() {
   saveJson(jsonText);
   try {
     parsed = parseVillage(jsonText, nowSec());
+    detailItems = parseVillageItems(jsonText, catalog);
     renderParsed();
+    renderDetails();
     if (parsed.length === 0) toast("Không có việc nào đang chạy.");
   } catch (e) {
     parsed = [];
+    detailItems = [];
     renderParsed();
+    renderDetails();
     toast("Dữ liệu không hợp lệ: " + e.message);
   }
+}
+
+function renderDetails() {
+  const tbody = $("detailBody");
+  tbody.innerHTML = "";
+  for (const item of detailItems) {
+    const tr = document.createElement("tr");
+    const levelText = item.maxLevel
+      ? `${item.currentLevel}/${item.maxLevel}`
+      : `${item.currentLevel}/?`;
+    const countText = item.count > 1 ? ` <span class="muted">x${item.count}</span>` : "";
+    const nextText = item.nextLevel
+      ? `Lv${item.nextLevel.level}: ${formatLevelCosts(item.nextLevel)} / ${formatDuration(item.nextLevel.timeSec)}`
+      : "-";
+    const runningText = item.finishAt ? finishClock(item.finishAt) : "-";
+    tr.innerHTML = `
+      <td>${itemNameHtml(item)}${countText}${item.matched ? "" : ' <span class="warn">raw</span>'}</td>
+      <td>${esc(item.source)}</td>
+      <td>${levelText}</td>
+      <td>${item.remainingLevels}</td>
+      <td>${esc(nextText)}</td>
+      <td>${esc(formatCosts(item.costs))}<br><span class="muted">${formatDuration(item.totalTimeSec)}</span></td>
+      <td>${esc(runningText)}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  $("detailCount").textContent = detailItems.length;
+  $("detailCard").hidden = detailItems.length === 0;
+}
+
+function itemNameHtml(item) {
+  const image = item.imageUrl
+    ? `<img class="item-icon" src="${escAttr(item.imageUrl)}" alt="" loading="lazy" onerror="this.remove()" />`
+    : "";
+  return `<span class="item-name">${image}<span>${esc(item.displayName || item.name)}</span></span>`;
 }
 
 function renderServer() {
@@ -272,7 +326,9 @@ async function saveJson(jsonText) {
 function clearJson() {
   $("json").value = "";
   parsed = [];
+  detailItems = [];
   renderParsed();
+  renderDetails();
   saveJson("");
   toast("Đã xóa JSON.");
 }

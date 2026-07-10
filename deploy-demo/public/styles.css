@@ -55,6 +55,13 @@ button.danger { background: transparent; border: 1px solid var(--danger); color:
 button.ghost { background: transparent; border: 1px solid var(--line); color: var(--muted); padding: 6px 12px; }
 button.icon { background: transparent; color: var(--muted); padding: 4px 8px; font-size: 1rem; }
 button:hover { filter: brightness(1.08); }
+.pill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding: 3px 8px;
+}
 
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 20px; }
 .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
@@ -137,6 +144,14 @@ th:nth-child(2), td:nth-child(2) {
 }
 td:last-child, th:last-child { text-align: right; width: 1%; }
 tbody:empty::after { content: "Chưa có việc nào."; color: var(--muted); }
+.detail-table th:nth-child(2), .detail-table td:nth-child(2),
+.detail-table th:nth-child(3), .detail-table td:nth-child(3),
+.detail-table th:nth-child(4), .detail-table td:nth-child(4) {
+  width: auto;
+  min-width: 0;
+}
+.muted { color: var(--muted); }
+.warn { color: #fbbf24; }
 
 #toast {
   position: fixed;

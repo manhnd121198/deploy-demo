@@ -22,6 +22,17 @@ Create a Deno Deploy project with:
 
 After deploy, create a new account in the app, choose Google Chat or Telegram, enter the channel config and village JSON, then schedule tasks.
 
+## Left to max detail catalog
+
+`public/data/catalog.json` is generated from the MIT-licensed
+`chiefpansancolt/clash-of-clans-data` repository:
+
+```bash
+python3 tools/build_catalog.py /path/to/clash-of-clans-data public/data/catalog.json
+```
+
+The catalog is used for item-level matching and left-to-max estimates. Unknown IDs are still shown as raw IDs in the UI.
+
 ## Telegram Bot
 
 1. Open Telegram and search for `@BotFather`.

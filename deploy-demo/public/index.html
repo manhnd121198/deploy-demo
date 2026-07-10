@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CoC Builder Alarm</title>
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=8" />
 </head>
 <body>
   <div class="wrap">
@@ -72,6 +72,29 @@
       <button id="parseBtn" class="primary">Parse &amp; Xem thời gian</button>
       <button id="clearJsonBtn" class="ghost fullw">Xóa JSON</button>
 
+      <div id="detailCard" class="card" hidden>
+        <div class="row">
+          <h2>Left to max chi tiết (<span id="detailCount">0</span>)</h2>
+          <span id="catalogStatus" class="pill">Catalog</span>
+        </div>
+        <div class="table-wrap">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Nguồn</th>
+                <th>Lv</th>
+                <th>Còn</th>
+                <th>Next</th>
+                <th>Total</th>
+                <th>Đang nâng</th>
+              </tr>
+            </thead>
+            <tbody id="detailBody"></tbody>
+          </table>
+        </div>
+      </div>
+
       <div id="parsedCard" class="card" hidden>
         <div class="row">
           <h2>Việc đang chạy (<span id="parsedCount">0</span>)</h2>
@@ -104,7 +127,7 @@
 
   <div id="toast"></div>
 
-  <script src="parser.js?v=6"></script>
-  <script src="app.js?v=6"></script>
+  <script src="parser.js?v=8"></script>
+  <script src="app.js?v=8"></script>
 </body>
 </html>
