@@ -53,6 +53,11 @@ async function handleApi(request: Request, url: URL): Promise<Response> {
     const secret = Deno.env.get("AUTH_SECRET");
     if (!secret) throw new Error("Server chưa cấu hình AUTH_SECRET");
 
+    if (path === "/api/debug/all" && method === "GET") {
+      requireAdmin(request);
+      return json(await debugAll());
+    }
+
     if (path === "/api/register" && method === "POST") {
       const { name, pin } = await request.json();
       const acct = await register(name, pin);
@@ -99,6 +104,10 @@ async function handleApi(request: Request, url: URL): Promise<Response> {
 
     if (path === "/api/tasks" && method === "GET") {
       return json(await listTasks(name));
+    }
+
+    if (path === "/api/debug/me" && method === "GET") {
+      return json(await debugMe(name));
     }
 
     if (path === "/api/schedule" && method === "POST") {
@@ -226,6 +235,89 @@ async function listTasks(name: string): Promise<{ tasks: PublicTask[] }> {
   const tasks = (await loadIndex(name)).map(toPublicTask);
   tasks.sort((a, b) => a.finishAt - b.finishAt);
   return { tasks };
+}
+
+async function debugMe(name: string) {
+  const acct = await loadAccount(name);
+  const tasks = (await loadIndex(name)).map((task) => ({
+    key: task.key,
+    label: task.label,
+    finishAt: task.finishAt,
+    channel: task.channel || "google",
+    attempts: task.attempts || 0,
+    bucket: task.bucket ?? bucketFor(task.finishAt),
+  }));
+  tasks.sort((a, b) => a.finishAt - b.finishAt);
+
+  return {
+    account: {
+      name,
+      channel: acct.channel || "google",
+      webhookUrl: maskSecret(acct.webhookUrl || ""),
+      telegramBotToken: maskSecret(acct.telegramBotToken || ""),
+      telegramChatId: acct.telegramChatId || "",
+      jsonLength: (acct.json || "").length,
+      createdAt: acct.createdAt,
+    },
+    tasks,
+  };
+}
+
+async function debugAll() {
+  const accounts = [];
+  for await (const entry of kv.list<Account>({ prefix: ["acct"] })) {
+    const name = String(entry.key[1] || "");
+    const acct = entry.value;
+    accounts.push({
+      name,
+      channel: acct.channel || "google",
+      webhookUrl: maskSecret(acct.webhookUrl || ""),
+      telegramBotToken: maskSecret(acct.telegramBotToken || ""),
+      telegramChatId: acct.telegramChatId || "",
+      jsonLength: (acct.json || "").length,
+      createdAt: acct.createdAt,
+    });
+  }
+
+  const taskIndexes = [];
+  for await (const entry of kv.list<{ tasks: Task[] }>({ prefix: ["task_index"] })) {
+    const name = String(entry.key[1] || "");
+    const tasks = Array.isArray(entry.value.tasks) ? entry.value.tasks : [];
+    taskIndexes.push({
+      name,
+      tasks: tasks.map((task) => ({
+        key: task.key,
+        label: task.label,
+        finishAt: task.finishAt,
+        channel: task.channel || "google",
+        attempts: task.attempts || 0,
+        bucket: task.bucket ?? bucketFor(task.finishAt),
+      })),
+    });
+  }
+
+  const dueBuckets = [];
+  for await (const entry of kv.list<{ tasks: Task[] }>({ prefix: ["due"] })) {
+    const bucket = Number(entry.key[1]);
+    const tasks = Array.isArray(entry.value.tasks) ? entry.value.tasks : [];
+    dueBuckets.push({
+      bucket,
+      tasks: tasks.map((task) => ({
+        key: task.key,
+        name: task.name,
+        label: task.label,
+        finishAt: task.finishAt,
+        channel: task.channel || "google",
+        attempts: task.attempts || 0,
+      })),
+    });
+  }
+
+  accounts.sort((a, b) => a.name.localeCompare(b.name));
+  taskIndexes.sort((a, b) => a.name.localeCompare(b.name));
+  dueBuckets.sort((a, b) => a.bucket - b.bucket);
+
+  return { accounts, taskIndexes, dueBuckets };
 }
 
 async function cancel(name: string, body: any): Promise<{ cancelled: number }> {
@@ -528,6 +620,13 @@ function bearer(request: Request): string {
   return h.startsWith("Bearer ") ? h.slice(7) : "";
 }
 
+function requireAdmin(request: Request): void {
+  const token = Deno.env.get("ADMIN_TOKEN");
+  if (!token) throw new Error("Server chưa cấu hình ADMIN_TOKEN");
+  const provided = request.headers.get("X-Admin-Token") || bearer(request);
+  if (!provided || !timingSafeEqual(provided, token)) throw new Error("Không có quyền admin");
+}
+
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
@@ -556,6 +655,12 @@ function contentType(path: string): string {
 
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
+}
+
+function maskSecret(value: string): string {
+  if (!value) return "";
+  if (value.length <= 12) return "***";
+  return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
 
 function toHex(buf: ArrayBuffer | Uint8Array): string {
