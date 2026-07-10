@@ -4,47 +4,105 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Left to max preview</title>
-  <link rel="stylesheet" href="styles.css?v=8" />
+  <link rel="stylesheet" href="styles.css?v=17" />
 </head>
 <body>
   <div class="wrap">
     <h1>Left to max preview</h1>
     <p class="sub">Dán JSON làng để xem thử mapping từng item. Trang này chỉ chạy local/static, không cần đăng nhập.</p>
 
-    <label for="json">Dán JSON làng vào đây</label>
-    <textarea id="json" rows="10" placeholder='{"timestamp": 1783064500, "buildings": [ ... ]}'></textarea>
-    <button id="parseBtn" class="primary">Parse detail</button>
-
-    <div id="detailCard" class="card" hidden>
-      <div class="row">
-        <h2>Left to max chi tiết (<span id="detailCount">0</span>)</h2>
-        <span id="catalogStatus" class="pill">Catalog</span>
-      </div>
-      <div class="table-wrap">
-        <table class="detail-table">
-          <thead>
-            <tr>
-              <th>Item</th>
-              <th>ID</th>
-              <th>Nguồn</th>
-              <th>Lv</th>
-              <th>Còn</th>
-              <th>Next</th>
-              <th>Total</th>
-              <th>Đang nâng</th>
-            </tr>
-          </thead>
-          <tbody id="detailBody"></tbody>
-        </table>
-      </div>
+    <div class="card">
+      <label for="json">Dán JSON làng vào đây</label>
+      <textarea id="json" rows="10" placeholder='{"timestamp": 1783064500, "buildings": [ ... ]}'></textarea>
+      <button id="parseBtn" class="primary">Parse detail</button>
     </div>
+
+    <nav class="tabs" aria-label="Các bảng preview">
+      <button class="tab active" type="button" data-tab="summary">Tổng hợp</button>
+      <button class="tab" type="button" data-tab="home">Làng chính</button>
+      <button class="tab" type="button" data-tab="builder">Căn cứ thợ xây</button>
+    </nav>
+
+    <section id="tab-summary" class="tab-panel active">
+      <div id="summaryCard" class="card" hidden>
+        <div class="row">
+          <h2>Tổng hợp left to max</h2>
+          <span id="catalogStatus" class="pill">Catalog</span>
+        </div>
+        <div class="summary-grid">
+          <div class="metric"><span>Item hiện có</span><b id="sumItems">0</b></div>
+          <div class="metric"><span>Số lượng hiện có</span><b id="sumCount">0</b></div>
+          <div class="metric"><span>Level còn lại</span><b id="sumLevels">0</b></div>
+          <div class="metric"><span>Thời gian tuần tự</span><b id="sumTime">0s</b></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Tài nguyên</th><th>Tổng cần</th></tr></thead>
+            <tbody id="resourceSummaryBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-home" class="tab-panel">
+      <div id="homeDetailCard" class="card" hidden>
+        <div class="row">
+          <h2>Làng chính (<span id="homeDetailCount">0</span>)</h2>
+          <span id="homeSummary" class="pill">0s</span>
+        </div>
+        <div class="table-wrap">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>ID</th>
+                <th>Nguồn</th>
+                <th>Lv</th>
+                <th>Còn</th>
+                <th>Next</th>
+                <th>Total</th>
+                <th>Đang nâng</th>
+              </tr>
+            </thead>
+            <tbody id="homeDetailBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-builder" class="tab-panel">
+      <div id="builderDetailCard" class="card" hidden>
+        <div class="row">
+          <h2>Căn cứ thợ xây (<span id="builderDetailCount">0</span>)</h2>
+          <span id="builderSummary" class="pill">0s</span>
+        </div>
+        <div class="table-wrap">
+          <table class="detail-table">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>ID</th>
+                <th>Nguồn</th>
+                <th>Lv</th>
+                <th>Còn</th>
+                <th>Next</th>
+                <th>Total</th>
+                <th>Đang nâng</th>
+              </tr>
+            </thead>
+            <tbody id="builderDetailBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
   </div>
 
   <div id="toast"></div>
-  <script src="parser.js?v=8"></script>
+  <script src="parser.js?v=17"></script>
   <script>
     const $ = (id) => document.getElementById(id);
     let catalog = { items: {} };
+    let activeTab = "summary";
 
     function toast(msg) {
       const t = $("toast");
@@ -55,10 +113,29 @@
 
     const esc = (s) =>
       String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+    const escAttr = (s) =>
+      String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+    function itemNameHtml(item) {
+      const image = item.imageUrl
+        ? `<img class="item-icon" src="${escAttr(item.imageUrl)}" alt="" loading="lazy" onerror="this.remove()" />`
+        : "";
+      return `<span class="item-name">${image}<span>${esc(item.displayName || item.name)}</span></span>`;
+    }
+
+    function setActiveTab(tab) {
+      activeTab = tab;
+      for (const button of document.querySelectorAll(".tab")) {
+        button.classList.toggle("active", button.dataset.tab === tab);
+      }
+      for (const panel of document.querySelectorAll(".tab-panel")) {
+        panel.classList.toggle("active", panel.id === `tab-${tab}`);
+      }
+    }
 
     async function loadCatalog() {
       try {
-        catalog = await fetch("data/catalog.json?v=2").then((r) => r.json());
+        catalog = await fetch("data/catalog.json?v=4").then((r) => r.json());
         $("catalogStatus").textContent = "Catalog OK";
       } catch {
         $("catalogStatus").textContent = "Không có catalog";
@@ -66,7 +143,27 @@
     }
 
     function renderDetails(items) {
-      const tbody = $("detailBody");
+      const homeItems = items.filter((item) => item.village === "home");
+      const builderItems = items.filter((item) => item.village === "builder");
+      renderDetailTable("homeDetailBody", homeItems);
+      renderDetailTable("builderDetailBody", builderItems);
+
+      const allSummary = summarizeItems(items);
+      const homeSummary = summarizeItems(homeItems);
+      const builderSummary = summarizeItems(builderItems);
+      renderSummary(allSummary);
+
+      $("homeDetailCount").textContent = homeItems.length;
+      $("builderDetailCount").textContent = builderItems.length;
+      $("homeSummary").textContent = summaryLabel(homeSummary);
+      $("builderSummary").textContent = summaryLabel(builderSummary);
+      $("homeDetailCard").hidden = homeItems.length === 0;
+      $("builderDetailCard").hidden = builderItems.length === 0;
+      $("summaryCard").hidden = items.length === 0;
+    }
+
+    function renderDetailTable(tbodyId, items) {
+      const tbody = $(tbodyId);
       tbody.innerHTML = "";
       for (const item of items) {
         const tr = document.createElement("tr");
@@ -77,7 +174,7 @@
           : "-";
         const runningText = item.finishAt ? finishClock(item.finishAt) : "-";
         tr.innerHTML = `
-          <td>${esc(item.name)}${countText}${item.matched ? "" : ' <span class="warn">raw</span>'}</td>
+          <td>${itemNameHtml(item)}${countText}${item.matched ? "" : ' <span class="warn">raw</span>'}</td>
           <td>${esc(item.dataId)}</td>
           <td>${esc(item.source)}</td>
           <td>${levelText}</td>
@@ -88,14 +185,47 @@
         `;
         tbody.appendChild(tr);
       }
-      $("detailCount").textContent = items.length;
-      $("detailCard").hidden = items.length === 0;
+    }
+
+    function summarizeItems(items) {
+      const summary = { itemCount: items.length, currentCount: 0, remainingLevels: 0, totalTimeSec: 0, costs: {} };
+      for (const item of items) {
+        summary.currentCount += Number(item.count || 0);
+        summary.remainingLevels += Number(item.remainingLevels || 0) * Number(item.count || 1);
+        summary.totalTimeSec += Number(item.totalTimeSec || 0);
+        for (const [resource, value] of Object.entries(item.costs || {})) {
+          summary.costs[resource] = (summary.costs[resource] || 0) + Number(value || 0);
+        }
+      }
+      return summary;
+    }
+
+    function renderSummary(summary) {
+      $("sumItems").textContent = Number(summary.itemCount).toLocaleString();
+      $("sumCount").textContent = Number(summary.currentCount).toLocaleString();
+      $("sumLevels").textContent = Number(summary.remainingLevels).toLocaleString();
+      $("sumTime").textContent = formatDuration(summary.totalTimeSec);
+
+      const tbody = $("resourceSummaryBody");
+      tbody.innerHTML = "";
+      const entries = Object.entries(summary.costs).filter(([, value]) => value > 0);
+      entries.sort((a, b) => b[1] - a[1]);
+      for (const [resource, value] of entries) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${esc(resource)}</td><td>${Number(value).toLocaleString()}</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    function summaryLabel(summary) {
+      return `${Number(summary.currentCount).toLocaleString()} hiện có · ${formatDuration(summary.totalTimeSec)}`;
     }
 
     $("parseBtn").onclick = () => {
       try {
         const items = parseVillageItems($("json").value, catalog);
         renderDetails(items);
+        if (items.length > 0) setActiveTab("summary");
         if (items.length === 0) toast("Không thấy item nào trong JSON.");
       } catch (e) {
         renderDetails([]);
@@ -103,6 +233,10 @@
       }
     };
 
+    for (const button of document.querySelectorAll(".tab")) {
+      button.onclick = () => setActiveTab(button.dataset.tab || "summary");
+    }
+    setActiveTab(activeTab);
     loadCatalog();
   </script>
 </body>

@@ -15,6 +15,7 @@ let speed10x = false;
 let clockBaseSec = 0;
 let clockBaseMs = Date.now();
 let lastDisplayNow = -1;
+let activeTab = "parse";
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 
@@ -37,7 +38,18 @@ function toast(msg) {
 }
 
 const esc = (s) =>
-  String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  String(s).replace(
+    /[&<>]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c],
+  );
+const escAttr = (s) =>
+  String(s).replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
 
 function authHeaders(extra) {
   const h = extra || {};
@@ -123,11 +135,21 @@ function setChannel(value) {
   $("telegramConfig").hidden = channel !== "telegram";
 }
 
+function setActiveTab(tab) {
+  activeTab = tab;
+  for (const button of document.querySelectorAll(".tab")) {
+    button.classList.toggle("active", button.dataset.tab === tab);
+  }
+  for (const panel of document.querySelectorAll(".tab-panel")) {
+    panel.classList.toggle("active", panel.id === `tab-${tab}`);
+  }
+}
+
 // ---- Bảng ----
 async function loadCatalog() {
   if (catalog) return catalog;
   try {
-    catalog = await fetch("data/catalog.json?v=2").then((r) => r.json());
+    catalog = await fetch("data/catalog.json?v=4").then((r) => r.json());
     $("catalogStatus").textContent = "Catalog OK";
   } catch {
     catalog = { items: {} };
@@ -142,8 +164,7 @@ function renderTable(tbodyId, rows, onDelete) {
   tbody.innerHTML = "";
   for (const row of rows) {
     const tr = document.createElement("tr");
-    tr.innerHTML =
-      `<td>${esc(row.label)}</td><td>${remaining(row.finishAt, now)}</td><td>${finishClock(row.finishAt)}</td>`;
+    tr.innerHTML = `<td>${esc(row.label)}</td><td>${remaining(row.finishAt, now)}</td><td>${finishClock(row.finishAt)}</td>`;
     const td = document.createElement("td");
     const btn = document.createElement("button");
     btn.className = "icon";
@@ -173,6 +194,7 @@ function doParse() {
     detailItems = parseVillageItems(jsonText, catalog);
     renderParsed();
     renderDetails();
+    if (detailItems.length > 0) setActiveTab("summary");
     if (parsed.length === 0) toast("Không có việc nào đang chạy.");
   } catch (e) {
     parsed = [];
@@ -184,14 +206,35 @@ function doParse() {
 }
 
 function renderDetails() {
-  const tbody = $("detailBody");
+  const homeItems = detailItems.filter((item) => item.village === "home");
+  const builderItems = detailItems.filter((item) => item.village === "builder");
+  renderDetailTable("homeDetailBody", homeItems);
+  renderDetailTable("builderDetailBody", builderItems);
+
+  const allSummary = summarizeItems(detailItems);
+  const homeSummary = summarizeItems(homeItems);
+  const builderSummary = summarizeItems(builderItems);
+  renderSummary(allSummary);
+
+  $("homeDetailCount").textContent = homeItems.length;
+  $("builderDetailCount").textContent = builderItems.length;
+  $("homeSummary").textContent = summaryLabel(homeSummary);
+  $("builderSummary").textContent = summaryLabel(builderSummary);
+  $("homeDetailCard").hidden = homeItems.length === 0;
+  $("builderDetailCard").hidden = builderItems.length === 0;
+  $("summaryCard").hidden = detailItems.length === 0;
+}
+
+function renderDetailTable(tbodyId, rows) {
+  const tbody = $(tbodyId);
   tbody.innerHTML = "";
-  for (const item of detailItems) {
+  for (const item of rows) {
     const tr = document.createElement("tr");
     const levelText = item.maxLevel
       ? `${item.currentLevel}/${item.maxLevel}`
       : `${item.currentLevel}/?`;
-    const countText = item.count > 1 ? ` <span class="muted">x${item.count}</span>` : "";
+    const countText =
+      item.count > 1 ? ` <span class="muted">x${item.count}</span>` : "";
     const nextText = item.nextLevel
       ? `Lv${item.nextLevel.level}: ${formatLevelCosts(item.nextLevel)} / ${formatDuration(item.nextLevel.timeSec)}`
       : "-";
@@ -207,8 +250,6 @@ function renderDetails() {
     `;
     tbody.appendChild(tr);
   }
-  $("detailCount").textContent = detailItems.length;
-  $("detailCard").hidden = detailItems.length === 0;
 }
 
 function itemNameHtml(item) {
@@ -216,6 +257,50 @@ function itemNameHtml(item) {
     ? `<img class="item-icon" src="${escAttr(item.imageUrl)}" alt="" loading="lazy" onerror="this.remove()" />`
     : "";
   return `<span class="item-name">${image}<span>${esc(item.displayName || item.name)}</span></span>`;
+}
+
+function summarizeItems(items) {
+  const summary = {
+    itemCount: items.length,
+    currentCount: 0,
+    remainingLevels: 0,
+    totalTimeSec: 0,
+    costs: {},
+  };
+  for (const item of items) {
+    summary.currentCount += Number(item.count || 0);
+    summary.remainingLevels +=
+      Number(item.remainingLevels || 0) * Number(item.count || 1);
+    summary.totalTimeSec += Number(item.totalTimeSec || 0);
+    for (const [resource, value] of Object.entries(item.costs || {})) {
+      summary.costs[resource] =
+        (summary.costs[resource] || 0) + Number(value || 0);
+    }
+  }
+  return summary;
+}
+
+function renderSummary(summary) {
+  $("sumItems").textContent = Number(summary.itemCount).toLocaleString();
+  $("sumCount").textContent = Number(summary.currentCount).toLocaleString();
+  $("sumLevels").textContent = Number(summary.remainingLevels).toLocaleString();
+  $("sumTime").textContent = formatDuration(summary.totalTimeSec);
+
+  const tbody = $("resourceSummaryBody");
+  tbody.innerHTML = "";
+  const entries = Object.entries(summary.costs).filter(
+    ([, value]) => value > 0,
+  );
+  entries.sort((a, b) => b[1] - a[1]);
+  for (const [resource, value] of entries) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${esc(resource)}</td><td>${Number(value).toLocaleString()}</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+function summaryLabel(summary) {
+  return `${Number(summary.currentCount).toLocaleString()} hiện có · ${formatDuration(summary.totalTimeSec)}`;
 }
 
 function renderServer() {
@@ -244,8 +329,12 @@ async function loadServer() {
 
 async function scheduleAll() {
   const config = channelPayload();
-  if (channel === "google" && !config.webhookUrl) return toast("Hãy nhập Google Chat webhook URL.");
-  if (channel === "telegram" && (!config.telegramBotToken || !config.telegramChatId)) {
+  if (channel === "google" && !config.webhookUrl)
+    return toast("Hãy nhập Google Chat webhook URL.");
+  if (
+    channel === "telegram" &&
+    (!config.telegramBotToken || !config.telegramChatId)
+  ) {
     return toast("Hãy nhập Telegram bot token và chat id.");
   }
   if (parsed.length === 0) return toast("Chưa có việc nào để đặt.");
@@ -259,7 +348,9 @@ async function scheduleAll() {
     // API thay toàn bộ lịch cũ bằng lịch mới; dùng kết quả trả về để hiện ngay.
     serverTasks = res.tasks || [];
     renderServer();
-    toast(`Đã thay ${res.replaced || 0} lịch cũ và đặt ${res.scheduled} lịch mới.`);
+    toast(
+      `Đã thay ${res.replaced || 0} lịch cũ và đặt ${res.scheduled} lịch mới.`,
+    );
   } catch (e) {
     toast("Lỗi đặt lịch: " + e.message);
   }
@@ -280,8 +371,12 @@ async function cancelAll() {
 // Gửi 1 tin thử tới kênh đang chọn để kiểm tra.
 async function testWebhook() {
   const config = channelPayload();
-  if (channel === "google" && !config.webhookUrl) return toast("Hãy nhập Google Chat webhook URL.");
-  if (channel === "telegram" && (!config.telegramBotToken || !config.telegramChatId)) {
+  if (channel === "google" && !config.webhookUrl)
+    return toast("Hãy nhập Google Chat webhook URL.");
+  if (
+    channel === "telegram" &&
+    (!config.telegramBotToken || !config.telegramChatId)
+  ) {
     return toast("Hãy nhập Telegram bot token và chat id.");
   }
   toast("Đang gửi tin thử...");
@@ -364,12 +459,16 @@ for (const input of document.querySelectorAll('input[name="channel"]')) {
     saveChannelConfig();
   };
 }
+for (const button of document.querySelectorAll(".tab")) {
+  button.onclick = () => setActiveTab(button.dataset.tab || "parse");
+}
 $("speed10x").onchange = () => {
   speed10x = $("speed10x").checked;
   resetClock();
   renderCountdowns();
 };
 resetClock();
+setActiveTab(activeTab);
 setInterval(renderCountdowns, 100);
 
 // Tự vào app nếu còn token hợp lệ.

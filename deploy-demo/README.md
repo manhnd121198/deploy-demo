@@ -31,7 +31,13 @@ After deploy, create a new account in the app, choose Google Chat or Telegram, e
 python3 tools/build_catalog.py /path/to/clash-of-clans-data public/data/catalog.json
 ```
 
-The catalog is used for item-level matching and left-to-max estimates. Unknown IDs are still shown as raw IDs in the UI.
+Pass an optional translations JSON as the third argument to add Vietnamese names:
+
+```bash
+python3 tools/build_catalog.py /path/to/clash-of-clans-data public/data/catalog.json tools/name_vi.json
+```
+
+The catalog is used for item-level matching, raw image URLs, and left-to-max estimates. Unknown IDs are still shown as raw IDs in the UI.
 
 ## Telegram Bot
 

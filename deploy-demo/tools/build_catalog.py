@@ -127,7 +127,13 @@ def normalize_levels(raw_levels):
     return levels
 
 
-def normalize_item(raw, default_kind=None):
+def translate_name(data_id, name, translations):
+    if not translations:
+        return ""
+    return translations.get(str(data_id)) or translations.get(name) or ""
+
+
+def normalize_item(raw, translations, default_kind=None):
     if not isinstance(raw, dict):
         return None
     data_id = raw.get("dataId")
@@ -146,6 +152,9 @@ def normalize_item(raw, default_kind=None):
         "kind": default_kind or raw.get("category", ""),
         "levels": normalize_levels(raw_levels),
     }
+    name_vi = translate_name(data_id, name, translations)
+    if name_vi:
+        item["nameVi"] = name_vi
     image_url = first_image(raw.get("images"))
     if not image_url and item["levels"]:
         image_url = item["levels"][0].get("imageUrl", "")
@@ -163,7 +172,7 @@ def add_item(items, item):
     items[item["id"]] = item
 
 
-def scan_file(path, data_root, items):
+def scan_file(path, data_root, items, translations):
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -171,22 +180,22 @@ def scan_file(path, data_root, items):
     if not isinstance(raw, dict):
         return
 
-    add_item(items, normalize_item(raw))
+    add_item(items, normalize_item(raw, translations))
 
     for key in ("modules", "types"):
         nested = raw.get(key)
         if not isinstance(nested, list):
             continue
         for entry in nested:
-            item = normalize_item(entry, raw.get("category", ""))
+            item = normalize_item(entry, translations, raw.get("category", ""))
             if item and not item.get("base"):
                 item["base"] = raw.get("base", "")
             add_item(items, item)
 
 
 def main():
-    if len(sys.argv) != 3:
-        print("usage: build_catalog.py <clash-of-clans-data-root-or-data-dir> <output-json>", file=sys.stderr)
+    if len(sys.argv) not in (3, 4):
+        print("usage: build_catalog.py <clash-of-clans-data-root-or-data-dir> <output-json> [translations-json]", file=sys.stderr)
         raise SystemExit(2)
 
     root = Path(sys.argv[1])
@@ -196,9 +205,13 @@ def main():
         print(f"data directory not found: {data_root}", file=sys.stderr)
         raise SystemExit(1)
 
+    translations = {}
+    if len(sys.argv) == 4:
+        translations = json.loads(Path(sys.argv[3]).read_text(encoding="utf-8"))
+
     items = {}
     for path in sorted(data_root.rglob("*.json")):
-        scan_file(path, data_root, items)
+        scan_file(path, data_root, items, translations)
 
     catalog = {
         "source": "chiefpansancolt/clash-of-clans-data",

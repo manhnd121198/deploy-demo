@@ -61,21 +61,27 @@ function parseVillageItems(jsonText, catalog) {
   const items = catalog?.items || {};
   const out = [];
   let nextId = 1;
+  const townHallLevel = findLevel("buildings", 1000001);
+  const builderHallLevel = findLevel("buildings2", 1000034);
+  const laboratoryLevel = findLevel("buildings", 1000007);
+  const petHouseLevel = findLevel("buildings", 1000068);
+  const blacksmithLevel = findLevel("buildings", 1000070);
+  const heroHallLevel = findLevel("buildings", 1000071);
   const sources = [
-    ["buildings", "Home Buildings"],
-    ["traps", "Home Traps"],
-    ["units", "Home Troops"],
-    ["siege_machines", "Siege Machines"],
-    ["heroes", "Home Heroes"],
-    ["spells", "Home Spells"],
-    ["pets", "Hero Pets"],
-    ["equipment", "Hero Equipment"],
-    ["guardians", "Guardians"],
-    ["helpers", "Helpers"],
-    ["buildings2", "Builder Buildings"],
-    ["traps2", "Builder Traps"],
-    ["units2", "Builder Troops"],
-    ["heroes2", "Builder Heroes"],
+    ["buildings", "Home Buildings", "home"],
+    ["traps", "Home Traps", "home"],
+    ["units", "Home Troops", "home"],
+    ["siege_machines", "Siege Machines", "home"],
+    ["heroes", "Home Heroes", "home"],
+    ["spells", "Home Spells", "home"],
+    ["pets", "Hero Pets", "home"],
+    ["equipment", "Hero Equipment", "home"],
+    ["guardians", "Guardians", "home"],
+    ["helpers", "Helpers", "home"],
+    ["buildings2", "Builder Buildings", "builder"],
+    ["traps2", "Builder Traps", "builder"],
+    ["units2", "Builder Troops", "builder"],
+    ["heroes2", "Builder Heroes", "builder"],
   ];
 
   function imageForLevel(item, currentLevel) {
@@ -89,7 +95,27 @@ function parseVillageItems(jsonText, catalog) {
     return selected || item?.imageUrl || "";
   }
 
-  function addFromArray(arrayKey, sourceLabel) {
+  function findLevel(arrayKey, dataId) {
+    const arr = Array.isArray(root[arrayKey]) ? root[arrayKey] : [];
+    const raw = arr.find((entry) => entry && typeof entry === "object" && Number(entry.data) === dataId);
+    return raw ? Number(raw.lvl || 0) : 0;
+  }
+
+  function isAllowedAtCurrentHall(level, village, item) {
+    if (item?.kind === "town-hall" || item?.kind === "builder-hall") {
+      const cap = village === "builder" ? builderHallLevel : townHallLevel;
+      return Number(level.level || 0) <= cap;
+    }
+    if (village === "home" && townHallLevel > 0 && Number(level.townHall || 0) > townHallLevel) return false;
+    if (village === "builder" && builderHallLevel > 0 && Number(level.builderHall || 0) > builderHallLevel) return false;
+    if (laboratoryLevel > 0 && Number(level.laboratory || 0) > laboratoryLevel) return false;
+    if (petHouseLevel > 0 && Number(level.petHouse || 0) > petHouseLevel) return false;
+    if (blacksmithLevel > 0 && Number(level.blacksmith || 0) > blacksmithLevel) return false;
+    if (heroHallLevel > 0 && Number(level.heroHall || 0) > heroHallLevel) return false;
+    return true;
+  }
+
+  function addFromArray(arrayKey, sourceLabel, village) {
     const arr = Array.isArray(root[arrayKey]) ? root[arrayKey] : [];
     for (const raw of arr) {
       if (!raw || typeof raw !== "object" || !("data" in raw)) continue;
@@ -98,8 +124,9 @@ function parseVillageItems(jsonText, catalog) {
       const currentLevel = Number(raw.lvl || 0);
       const count = Math.max(1, Number(raw.cnt || 1));
       const levels = Array.isArray(item?.levels) ? item.levels : [];
-      const maxLevel = levels.reduce((max, level) => Math.max(max, Number(level.level || 0)), 0);
-      const remainingLevels = levels.filter((level) => Number(level.level || 0) > currentLevel);
+      const availableLevels = levels.filter((level) => isAllowedAtCurrentHall(level, village, item));
+      const maxLevel = availableLevels.reduce((max, level) => Math.max(max, Number(level.level || 0)), currentLevel);
+      const remainingLevels = availableLevels.filter((level) => Number(level.level || 0) > currentLevel);
       const nextLevel = remainingLevels[0] || null;
       const totalTimeSec = remainingLevels.reduce((sum, level) => sum + Number(level.timeSec || 0) * count, 0);
       const costs = {};
@@ -115,6 +142,7 @@ function parseVillageItems(jsonText, catalog) {
       out.push({
         id: nextId++,
         dataId,
+        village,
         source: sourceLabel,
         name: item?.name || `ID ${dataId}`,
         displayName: item?.nameVi || item?.name || `ID ${dataId}`,
@@ -122,6 +150,8 @@ function parseVillageItems(jsonText, catalog) {
         matched: Boolean(item),
         currentLevel,
         maxLevel,
+        townHallLevel,
+        builderHallLevel,
         count,
         nextLevel,
         remainingLevels: remainingLevels.length,
@@ -133,8 +163,8 @@ function parseVillageItems(jsonText, catalog) {
     }
   }
 
-  for (const [arrayKey, sourceLabel] of sources) {
-    addFromArray(arrayKey, sourceLabel);
+  for (const [arrayKey, sourceLabel, village] of sources) {
+    addFromArray(arrayKey, sourceLabel, village);
   }
 
   out.sort((a, b) => a.source.localeCompare(b.source) || a.name.localeCompare(b.name));
