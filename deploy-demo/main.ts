@@ -4,7 +4,7 @@ const kv = await Deno.openKv();
 
 const GOOGLE_CHAT_RE = /^https:\/\/chat\.googleapis\.com\//;
 const MAX_ATTEMPTS = 3;
-const BUCKET_LOOKBACK_MINUTES = 30;
+const BUCKET_LOOKBACK_MINUTES = 3;
 
 type Account = {
   salt: string;
