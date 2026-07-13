@@ -200,14 +200,15 @@ function finishClock(finishAt) {
   return `${p(d.getHours())}:${p(d.getMinutes())} ${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
-// Thời gian còn lại dạng HH:mm, giờ có thể lớn hơn 24.
+// Thời gian còn lại dạng HH:mm:ss, giờ có thể lớn hơn 24.
 function remaining(finishAt, nowSec) {
   let s = Math.floor(finishAt - nowSec);
   if (s < 0) s = 0;
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
   const p = (n) => String(n).padStart(2, "0");
-  return `${p(h)}:${p(m)}`;
+  return `${p(h)}:${p(m)}:${p(sec)}`;
 }
 
 function formatDuration(totalSec) {

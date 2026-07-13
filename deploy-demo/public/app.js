@@ -158,6 +158,7 @@ function setActiveTab(tab) {
   for (const panel of document.querySelectorAll(".tab-panel")) {
     panel.classList.toggle("active", panel.id === `tab-${tab}`);
   }
+  $("serverSchedule").hidden = tab !== "parse";
 }
 
 // ---- Bảng ----
@@ -348,7 +349,16 @@ function summaryLabel(summary) {
 
 function renderServer() {
   serverTasks.sort((a, b) => a.finishAt - b.finishAt);
-  renderTable("serverBody", serverTasks, async (row) => {
+  const unmatched = [...parsed];
+  const displayTasks = serverTasks.map((row) => {
+    const matchIndex = unmatched.findIndex(
+      (task) => Number(task.finishAt) === Number(row.finishAt),
+    );
+    if (matchIndex < 0) return row;
+    const [current] = unmatched.splice(matchIndex, 1);
+    return { ...row, label: current.label };
+  });
+  renderTable("serverBody", displayTasks, async (row) => {
     try {
       await apiPost("/api/cancel", { key: row.key });
       serverTasks = serverTasks.filter((x) => x.key !== row.key);
