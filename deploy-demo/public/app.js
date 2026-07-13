@@ -3,6 +3,7 @@
 
 const $ = (id) => document.getElementById(id);
 const LS_TOKEN = "coc_token";
+const API_BASE = String(window.COC_API_BASE || "").replace(/\/$/, "");
 
 let token = localStorage.getItem(LS_TOKEN) || "";
 let account = "";
@@ -58,17 +59,21 @@ function authHeaders(extra) {
 }
 
 async function apiGet(path) {
-  const r = await fetch(path, { headers: authHeaders() });
+  const r = await fetch(apiUrl(path), { headers: authHeaders() });
   return handle(r);
 }
 
 async function apiPost(path, body) {
-  const r = await fetch(path, {
+  const r = await fetch(apiUrl(path), {
     method: "POST",
     headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
   });
   return handle(r);
+}
+
+function apiUrl(path) {
+  return API_BASE ? `${API_BASE}${path}` : path;
 }
 
 async function handle(r) {

@@ -22,6 +22,9 @@ Create a Deno Deploy project with:
 
 After deploy, create a new account in the app, choose Google Chat or Telegram, enter the channel config and village JSON, then schedule tasks.
 
+If Deno Deploy limits are a problem, use the Supabase path in `../supabase/README.md`.
+The same frontend can point to Supabase by editing `public/config.js`.
+
 ## Left to max detail catalog
 
 `public/data/catalog.json` is generated from the MIT-licensed
