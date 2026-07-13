@@ -10,14 +10,20 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -25,19 +31,21 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScrollableTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +54,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import vn.coc.builderalarm.model.BuilderTask
 import vn.coc.builderalarm.parser.VillageParseException
+import kotlinx.coroutines.launch
+
+private val FIXED_TABS = listOf("Thợ xây", "Lab", "Builder Base", "Thợ phụ")
+private val TAB_ORDER = listOf("Thợ xây", "Lab", "Builder Base", "Thợ phụ", "Tháp đồng hồ")
+private val TAB_LABELS = mapOf("Builder Base" to "Căn cứ thợ xây")
 
 class MainActivity : ComponentActivity() {
 
@@ -112,6 +125,8 @@ private fun MainScreen() {
                     webhookUrl = webhookUrl,
                     onWebhookChange = { webhookUrl = it },
                     testingWebhook = testingWebhook,
+                    canGoBack = tasks.isNotEmpty(),
+                    onBack = { screen = Screen.Preview },
                     onTestWebhook = {
                         if (webhookUrl.isBlank()) {
                             toast("Hãy nhập Google Chat webhook URL.")
@@ -185,9 +200,18 @@ private fun ColumnScope.InputScreen(
     webhookUrl: String,
     onWebhookChange: (String) -> Unit,
     testingWebhook: Boolean,
+    canGoBack: Boolean,
+    onBack: () -> Unit,
     onTestWebhook: () -> Unit,
     onParse: () -> Unit
 ) {
+    if (canGoBack) {
+        OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
+            Text("Quay lại danh sách")
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+
     OutlinedTextField(
         value = webhookUrl,
         onValueChange = onWebhookChange,
@@ -236,7 +260,7 @@ private fun ColumnScope.InputScreen(
 }
 
 @Composable
-private fun PreviewScreen(
+private fun ColumnScope.PreviewScreen(
     tasks: List<BuilderTask>,
     nowSec: Long,
     scheduled: Boolean,
@@ -275,22 +299,63 @@ private fun PreviewScreen(
         Spacer(Modifier.height(8.dp))
     }
 
-    TaskTable(tasks = tasks, nowSec = nowSec, onDelete = onDelete)
+    TaskTabs(tasks = tasks, nowSec = nowSec, onDelete = onDelete)
+}
+
+@Composable
+@OptIn(ExperimentalFoundationApi::class)
+private fun ColumnScope.TaskTabs(
+    tasks: List<BuilderTask>,
+    nowSec: Long,
+    onDelete: (BuilderTask) -> Unit
+) {
+    val grouped = tasks.groupBy { it.category }
+    val categories = (FIXED_TABS + grouped.keys.filterNot { it in FIXED_TABS })
+        .distinct()
+        .sortedBy { category ->
+            TAB_ORDER.indexOf(category).let { if (it < 0) TAB_ORDER.size else it }
+        }
+    val pagerState = rememberPagerState { categories.size }
+    val scope = rememberCoroutineScope()
+
+    ScrollableTabRow(selectedTabIndex = pagerState.currentPage, edgePadding = 0.dp) {
+        categories.forEachIndexed { index, category ->
+            val label = TAB_LABELS[category] ?: category
+            Tab(
+                selected = pagerState.currentPage == index,
+                onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                text = { Text("$label (${grouped[category]?.size ?: 0})") }
+            )
+        }
+    }
+    Spacer(Modifier.height(8.dp))
+    HorizontalPager(
+        state = pagerState,
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f)
+    ) { page ->
+        TaskTable(
+            tasks = grouped[categories[page]].orEmpty(),
+            nowSec = nowSec,
+            onDelete = onDelete,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
 }
 
 @Composable
 private fun TaskTable(
     tasks: List<BuilderTask>,
     nowSec: Long,
-    onDelete: (BuilderTask) -> Unit
+    onDelete: (BuilderTask) -> Unit,
+    modifier: Modifier = Modifier.fillMaxWidth()
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(modifier = modifier) {
         TableHeader()
-        HorizontalDivider()
-        LazyColumn {
+        LazyColumn(modifier = Modifier.weight(1f)) {
             items(tasks, key = { it.id }) { task ->
                 TableRow(task = task, nowSec = nowSec, onDelete = { onDelete(task) })
-                HorizontalDivider()
             }
         }
     }
@@ -301,13 +366,17 @@ private fun TableHeader() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .height(IntrinsicSize.Min),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("Việc", modifier = Modifier.weight(1.4f), fontWeight = FontWeight.Bold)
-        Text("Còn lại", modifier = Modifier.weight(1f), fontWeight = FontWeight.Bold)
-        Text("Xong", modifier = Modifier.weight(1.2f), fontWeight = FontWeight.Bold)
-        Spacer(Modifier.weight(0.4f))
+        val cell = Modifier
+            .fillMaxHeight()
+            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+        Text("Việc", modifier = cell.weight(1.4f), fontWeight = FontWeight.Bold)
+        Text("Còn lại", modifier = cell.weight(1f), fontWeight = FontWeight.Bold)
+        Text("Xong", modifier = cell.weight(1.2f), fontWeight = FontWeight.Bold)
+        Spacer(cell.weight(0.4f))
     }
 }
 
@@ -316,13 +385,23 @@ private fun TableRow(task: BuilderTask, nowSec: Long, onDelete: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .height(IntrinsicSize.Min),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(task.label, modifier = Modifier.weight(1.4f))
-        Text(task.remaining(nowSec), modifier = Modifier.weight(1f))
-        Text(task.finishClock(), modifier = Modifier.weight(1.2f))
-        IconButton(onClick = onDelete, modifier = Modifier.weight(0.4f)) {
+        val cell = Modifier
+            .fillMaxHeight()
+            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+        Text(task.label, modifier = cell.weight(1.4f))
+        Text(task.remaining(nowSec), modifier = cell.weight(1f))
+        Text(task.finishClock(), modifier = cell.weight(1.2f))
+        IconButton(
+            onClick = onDelete,
+            modifier = Modifier
+                .weight(0.4f)
+                .fillMaxHeight()
+                .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
             Icon(Icons.Filled.Delete, contentDescription = "Xoá")
         }
     }

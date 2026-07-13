@@ -16,7 +16,11 @@ class VillageParseException(message: String) : Exception(message)
  */
 object VillageJsonParser {
 
-    fun parse(json: String, nowEpochSec: Long): List<BuilderTask> {
+    fun parse(
+        json: String,
+        nowEpochSec: Long,
+        itemName: (Long) -> String? = { null }
+    ): List<BuilderTask> {
         val root = try {
             JSONObject(json)
         } catch (e: JSONException) {
@@ -34,27 +38,36 @@ object VillageJsonParser {
         // Đếm thứ tự riêng cho từng nhóm.
         val counters = mutableMapOf<String, Int>()
 
-        fun add(category: String, timer: Long) {
+        fun add(category: String, timer: Long, dataId: Long = 0L, level: Int = 0) {
             if (timer <= 0L) return
             val finishAt = timestamp + timer
             if (finishAt <= nowEpochSec) return // đã xong -> bỏ qua
             val n = (counters[category] ?: 0) + 1
             counters[category] = n
+            val name = itemName(dataId)
+            val label = if (name != null) "$name ${level + 1}" else "$category #$n"
             tasks.add(
                 BuilderTask(
                     id = nextId++,
                     category = category,
-                    label = "$category #$n",
+                    label = label,
                     finishAtEpochSec = finishAt
                 )
             )
         }
 
         // Mảng có field "timer".
-        forEachTimer(root, "buildings") { add("Thợ xây", it) }
-        forEachTimer(root, "buildings2") { add("Builder Base", it) }
-        forEachTimer(root, "units") { add("Lab", it) }
-        forEachTimer(root, "units2") { add("Lab", it) }
+        forEachTimer(root, "buildings") { timer, dataId, level ->
+            add("Thợ xây", timer, dataId, level)
+        }
+        forEachTimer(root, "buildings2") { timer, dataId, level ->
+            add("Builder Base", timer, dataId, level)
+        }
+        listOf("units", "units2", "spells", "siege_machines").forEach { key ->
+            forEachTimer(root, key) { timer, dataId, level ->
+                add("Lab", timer, dataId, level)
+            }
+        }
 
         // Thợ phụ: field "helper_cooldown".
         forEachField(root, "helpers", "helper_cooldown") { add("Thợ phụ", it) }
@@ -68,8 +81,23 @@ object VillageJsonParser {
         return tasks.sortedBy { it.finishAtEpochSec }
     }
 
-    private inline fun forEachTimer(root: JSONObject, key: String, add: (Long) -> Unit) =
-        forEachField(root, key, "timer", add)
+    private inline fun forEachTimer(
+        root: JSONObject,
+        key: String,
+        add: (timer: Long, dataId: Long, level: Int) -> Unit
+    ) {
+        val arr: JSONArray = root.optJSONArray(key) ?: return
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.has("timer")) {
+                add(
+                    o.optLong("timer", 0L),
+                    o.optLong("data", 0L),
+                    o.optInt("lvl", 0)
+                )
+            }
+        }
+    }
 
     private inline fun forEachField(
         root: JSONObject,

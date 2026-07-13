@@ -7,6 +7,7 @@ import vn.coc.builderalarm.alarm.AlarmScheduler
 import vn.coc.builderalarm.alarm.GoogleChatWebhookClient
 import vn.coc.builderalarm.model.BuilderTask
 import vn.coc.builderalarm.parser.VillageJsonParser
+import vn.coc.builderalarm.parser.ItemCatalog
 import vn.coc.builderalarm.storage.InputStore
 import vn.coc.builderalarm.storage.TaskStore
 
@@ -16,12 +17,13 @@ class BuilderAlarmController(context: Context) {
     private val scheduler = AlarmScheduler(context)
     private val store = TaskStore(context)
     private val inputStore = InputStore(context)
+    private val itemCatalog = ItemCatalog(context)
 
     fun canScheduleExact(): Boolean = scheduler.canScheduleExact()
 
     /** Parse JSON -> danh sách xem trước (chưa đặt báo thức). Ném khi JSON sai. */
     fun parse(json: String): List<BuilderTask> =
-        VillageJsonParser.parse(json, nowSec())
+        VillageJsonParser.parse(json, nowSec(), itemCatalog::nameOf)
 
     fun saveInput(json: String, webhookUrl: String) {
         inputStore.save(json, webhookUrl)

@@ -25,18 +25,13 @@ data class BuilderTask(
         SimpleDateFormat("HH:mm dd/MM/yyyy", Locale.getDefault())
             .format(Date(finishAtEpochSec * 1000))
 
-    /** Thời gian còn lại dạng "2h19m" / "45m" / "30s" tính từ nowSec. */
+    /** Thời gian còn lại dạng HH:mm tính từ nowSec. */
     fun remaining(nowSec: Long): String {
         var s = finishAtEpochSec - nowSec
         if (s < 0) s = 0
         val h = s / 3600
         val m = (s % 3600) / 60
-        val sec = s % 60
-        return when {
-            h > 0 -> "${h}h${m}m"
-            m > 0 -> "${m}m"
-            else -> "${sec}s"
-        }
+        return String.format("%02d:%02d", h, m)
     }
 
     fun toJson(): JSONObject = JSONObject()

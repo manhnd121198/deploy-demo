@@ -65,6 +65,27 @@ class VillageJsonParserTest {
     }
 
     @Test
+    fun `hien ten va cap nang cap khi catalog co data id`() {
+        val names = mapOf(
+            1000009L to "Tháp Cung",
+            4000005L to "Khinh khí cầu"
+        )
+
+        val tasks = VillageJsonParser.parse(sampleJson, timestamp, names::get)
+
+        assertTrue(tasks.any { it.label == "Tháp Cung 8" })
+        assertTrue(tasks.any { it.label == "Khinh khí cầu 5" })
+    }
+
+    @Test
+    fun `giu nhan cu khi catalog khong co data id`() {
+        val tasks = VillageJsonParser.parse(sampleJson, timestamp) { null }
+
+        assertTrue(tasks.any { it.label.startsWith("Thợ xây #") })
+        assertTrue(tasks.any { it.label.startsWith("Lab #") })
+    }
+
+    @Test
     fun `bo qua timer da xong`() {
         // now = timestamp + 2000 -> các timer <= 2000 (249, 1783) đã xong.
         val tasks = VillageJsonParser.parse(sampleJson, timestamp + 2000)

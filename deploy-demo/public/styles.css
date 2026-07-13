@@ -87,9 +87,11 @@ button:hover { filter: brightness(1.08); }
 }
 .schedule-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
+#taskActions { margin-top: 12px; }
+.task-panel .card { padding: 0; overflow: hidden; }
 .tabs {
   display: flex;
   gap: 8px;
@@ -205,7 +207,7 @@ button:hover { filter: brightness(1.08); }
 
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th, td { text-align: left; padding: 8px 10px; border: 1px solid var(--line); white-space: nowrap; }
 th { color: var(--muted); font-weight: 600; font-size: 0.8rem; }
 th:nth-child(2), td:nth-child(2) {
   width: 7.5rem;

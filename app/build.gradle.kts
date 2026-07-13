@@ -35,6 +35,7 @@ android {
     buildFeatures {
         compose = true
     }
+    sourceSets["main"].assets.srcDir("../deploy-demo/public/data")
     composeOptions {
         kotlinCompilerExtensionVersion = "1.5.14"
     }

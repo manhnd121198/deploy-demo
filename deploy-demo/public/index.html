@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CoC Builder Alarm</title>
-  <link rel="stylesheet" href="styles.css?v=22" />
+  <link rel="stylesheet" href="styles.css?v=24" />
 </head>
 <body>
   <div class="wrap">
@@ -29,9 +29,11 @@
       </div>
       <nav class="tabs" aria-label="Các màn hình">
         <button class="tab active" type="button" data-tab="parse">Dữ liệu JSON</button>
-        <button class="tab" type="button" data-tab="summary">Tổng hợp</button>
-        <button class="tab" type="button" data-tab="home">Làng chính</button>
-        <button class="tab" type="button" data-tab="builder">Căn cứ thợ xây</button>
+        <button class="tab" type="button" data-tab="work-builders">Thợ xây (<span id="count-builders">0</span>)</button>
+        <button class="tab" type="button" data-tab="work-lab">Lab (<span id="count-lab">0</span>)</button>
+        <button class="tab" type="button" data-tab="work-builder-base">Căn cứ thợ xây (<span id="count-builder-base">0</span>)</button>
+        <button class="tab" type="button" data-tab="work-helper">Thợ phụ (<span id="count-helper">0</span>)</button>
+        <button class="tab" type="button" data-tab="work-clock">Tháp đồng hồ (<span id="count-clock">0</span>)</button>
       </nav>
 
       <section id="tab-parse" class="tab-panel active">
@@ -86,93 +88,18 @@
         </div>
       </section>
 
-      <section id="tab-summary" class="tab-panel">
-        <div id="summaryCard" class="card" hidden>
-          <div class="row">
-            <h2>Tổng hợp làng chính</h2>
-            <span id="catalogStatus" class="pill">Catalog</span>
-          </div>
-          <div class="summary-grid">
-            <div class="metric"><span>Hạng mục hiện có</span><b id="sumItems">0</b></div>
-            <div class="metric"><span>Số lượng hiện có</span><b id="sumCount">0</b></div>
-            <div class="metric"><span>Level còn lại</span><b id="sumLevels">0</b></div>
-            <div class="metric"><span>Tuần tự</span><b id="sumTime">0s</b></div>
-            <div class="metric"><span>Với 5 thợ</span><b id="sumParallelTime">0s</b></div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>Tài nguyên</th><th>Tổng cần</th></tr></thead>
-              <tbody id="resourceSummaryBody"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+      <section id="tab-work-builders" class="tab-panel task-panel"><div class="card"><div class="table-wrap"><table><thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead><tbody id="body-builders"></tbody></table></div></div></section>
+      <section id="tab-work-lab" class="tab-panel task-panel"><div class="card"><div class="table-wrap"><table><thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead><tbody id="body-lab"></tbody></table></div></div></section>
+      <section id="tab-work-builder-base" class="tab-panel task-panel"><div class="card"><div class="table-wrap"><table><thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead><tbody id="body-builder-base"></tbody></table></div></div></section>
+      <section id="tab-work-helper" class="tab-panel task-panel"><div class="card"><div class="table-wrap"><table><thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead><tbody id="body-helper"></tbody></table></div></div></section>
+      <section id="tab-work-clock" class="tab-panel task-panel"><div class="card"><div class="table-wrap"><table><thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead><tbody id="body-clock"></tbody></table></div></div></section>
 
-      <section id="tab-home" class="tab-panel">
-        <div id="homeDetailCard" class="card" hidden>
-          <div class="row">
-            <h2>Làng chính (<span id="homeDetailCount">0</span>)</h2>
-            <span id="homeSummary" class="pill">0s</span>
-          </div>
-          <div class="table-wrap">
-            <table class="detail-table">
-              <thead>
-                <tr>
-                  <th>Hạng mục</th>
-                  <th>Nguồn</th>
-                  <th>Lv</th>
-                  <th>Còn</th>
-                  <th>Tiếp theo</th>
-                  <th>Tổng</th>
-                  <th>Đang nâng</th>
-                </tr>
-              </thead>
-              <tbody id="homeDetailBody"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
-      <section id="tab-builder" class="tab-panel">
-        <div id="builderDetailCard" class="card" hidden>
-          <div class="row">
-            <h2>Căn cứ thợ xây (<span id="builderDetailCount">0</span>)</h2>
-            <span id="builderSummary" class="pill">0s</span>
-          </div>
-          <div class="table-wrap">
-            <table class="detail-table">
-              <thead>
-                <tr>
-                  <th>Hạng mục</th>
-                  <th>Nguồn</th>
-                  <th>Lv</th>
-                  <th>Còn</th>
-                  <th>Tiếp theo</th>
-                  <th>Tổng</th>
-                  <th>Đang nâng</th>
-                </tr>
-              </thead>
-              <tbody id="builderDetailBody"></tbody>
-            </table>
-          </div>
-        </div>
-      </section>
+      <div id="taskActions" hidden>
+        <button id="reloadBtn" class="ghost fullw">Tải lại JSON</button>
+        <button id="scheduleBtn" class="primary">Đặt gửi tất cả (<span id="parsedCount">0</span>)</button>
+      </div>
 
       <div class="schedule-grid">
-        <div id="parsedCard" class="card" hidden>
-            <div class="row">
-              <h2>Việc đang chạy (<span id="parsedCount">0</span>)</h2>
-              <button id="reloadBtn" class="ghost">Tải lại</button>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead>
-                <tbody id="parsedBody"></tbody>
-              </table>
-            </div>
-            <button id="scheduleBtn" class="primary">Đặt gửi tất cả</button>
-        </div>
-
         <div class="card">
           <div class="row">
             <h2>Đã lên lịch trên server (<span id="serverCount">0</span>)</h2>
@@ -193,7 +120,7 @@
   <div id="toast"></div>
 
   <script src="config.js?v=1"></script>
-  <script src="parser.js?v=23"></script>
-  <script src="app.js?v=23"></script>
+  <script src="parser.js?v=24"></script>
+  <script src="app.js?v=24"></script>
 </body>
 </html>

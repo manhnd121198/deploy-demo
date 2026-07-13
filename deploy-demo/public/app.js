@@ -8,7 +8,6 @@ const API_BASE = String(window.COC_API_BASE || "").replace(/\/$/, "");
 let token = localStorage.getItem(LS_TOKEN) || "";
 let account = "";
 let parsed = []; // việc parse ở client, chưa gửi server
-let detailItems = [];
 let serverTasks = []; // việc đã lên lịch trên server (giữ ở client để hiện ngay)
 let catalog = null;
 let channel = "google";
@@ -16,7 +15,15 @@ let speed10x = false;
 let clockBaseSec = 0;
 let clockBaseMs = Date.now();
 let lastDisplayNow = -1;
-let activeTab = "summary";
+let activeTab = "parse";
+
+const TASK_TABS = [
+  { category: "Thợ xây", body: "body-builders", count: "count-builders" },
+  { category: "Lab", body: "body-lab", count: "count-lab" },
+  { category: "Builder Base", body: "body-builder-base", count: "count-builder-base" },
+  { category: "Thợ phụ", body: "body-helper", count: "count-helper" },
+  { category: "Tháp đồng hồ", body: "body-clock", count: "count-clock" },
+];
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 
@@ -130,8 +137,6 @@ async function enterApp() {
   await loadCatalog();
   if ($("json").value.trim()) {
     parseCurrentJson({ save: false, switchTab: false, quiet: true });
-  } else {
-    renderDetails();
   }
   await loadServer();
 }
@@ -160,10 +165,8 @@ async function loadCatalog() {
   if (catalog) return catalog;
   try {
     catalog = await fetch("data/catalog.json?v=5").then((r) => r.json());
-    $("catalogStatus").textContent = "Catalog sẵn sàng";
   } catch {
     catalog = { items: {} };
-    $("catalogStatus").textContent = "Không có catalog";
   }
   return catalog;
 }
@@ -188,12 +191,17 @@ function renderTable(tbodyId, rows, onDelete) {
 }
 
 function renderParsed() {
-  renderTable("parsedBody", parsed, (row) => {
+  const remove = (row) => {
     parsed = parsed.filter((x) => x.id !== row.id);
     renderParsed();
-  });
+  };
+  for (const tab of TASK_TABS) {
+    const rows = parsed.filter((task) => task.category === tab.category);
+    renderTable(tab.body, rows, remove);
+    $(tab.count).textContent = rows.length;
+  }
   $("parsedCount").textContent = parsed.length;
-  $("parsedCard").hidden = parsed.length === 0;
+  $("taskActions").hidden = parsed.length === 0;
 }
 
 function parseCurrentJson(options = {}) {
@@ -203,17 +211,13 @@ function parseCurrentJson(options = {}) {
   const jsonText = $("json").value;
   if (shouldSave) saveJson(jsonText);
   try {
-    parsed = parseVillage(jsonText, nowSec());
-    detailItems = parseVillageItems(jsonText, catalog);
+    parsed = parseVillage(jsonText, nowSec(), catalog);
     renderParsed();
-    renderDetails();
-    if (detailItems.length > 0 && shouldSwitchTab) setActiveTab("summary");
+    if (parsed.length > 0 && shouldSwitchTab) setActiveTab("work-builders");
     if (parsed.length === 0 && !quiet) toast("Không có việc nào đang chạy.");
   } catch (e) {
     parsed = [];
-    detailItems = [];
     renderParsed();
-    renderDetails();
     if (!quiet) toast("Dữ liệu không hợp lệ: " + e.message);
   }
 }
@@ -460,9 +464,7 @@ async function saveJson(jsonText) {
 function clearJson() {
   $("json").value = "";
   parsed = [];
-  detailItems = [];
   renderParsed();
-  renderDetails();
   saveJson("");
   toast("Đã xóa JSON.");
 }

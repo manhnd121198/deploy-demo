@@ -1,10 +1,10 @@
 // Port của VillageJsonParser.kt — trích timer đang chạy từ JSON "chia sẻ làng" CoC.
 // Quy tắc: finishAt = timestamp + timer. Bỏ timer đã xong (finishAt <= now).
-// Chỉ phân loại theo nguồn, không tra tên công trình.
+// Tra catalog theo field "data" để hiện tên và cấp đích.
 
 class VillageParseError extends Error {}
 
-function parseVillage(jsonText, nowSec) {
+function parseVillage(jsonText, nowSec, catalog) {
   let root;
   try {
     root = JSON.parse(jsonText);
@@ -24,26 +24,40 @@ function parseVillage(jsonText, nowSec) {
   let nextId = 1;
   const counters = {}; // đếm thứ tự riêng theo nhóm
 
-  function add(category, timer) {
+  function add(category, timer, raw = {}) {
     timer = Number(timer);
     if (!Number.isFinite(timer) || timer <= 0) return;
     const finishAt = timestamp + timer;
     if (finishAt <= nowSec) return; // đã xong -> bỏ qua
     const n = (counters[category] || 0) + 1;
     counters[category] = n;
-    tasks.push({ id: nextId++, category, label: `${category} #${n}`, finishAt });
+    const item = catalog?.items?.[String(raw.data)];
+    const name = item?.nameVi || item?.name;
+    const level = Number(raw.lvl || 0) + 1;
+    tasks.push({
+      id: nextId++,
+      category,
+      label: name ? `${name} ${level}` : `${category} #${n}`,
+      finishAt,
+    });
   }
 
   const arr = (key) => (Array.isArray(root[key]) ? root[key] : []);
-  const withField = (key, field, category) => {
-    for (const o of arr(key)) if (o && typeof o === "object" && field in o) add(category, o[field]);
+  const withField = (key, field, category, useCatalog = false) => {
+    for (const o of arr(key)) {
+      if (o && typeof o === "object" && field in o) {
+        add(category, o[field], useCatalog ? o : {});
+      }
+    }
   };
 
   // Mảng có field "timer".
-  withField("buildings", "timer", "Thợ xây");
-  withField("buildings2", "timer", "Builder Base");
-  withField("units", "timer", "Lab");
-  withField("units2", "timer", "Lab");
+  withField("buildings", "timer", "Thợ xây", true);
+  withField("buildings2", "timer", "Builder Base", true);
+  withField("units", "timer", "Lab", true);
+  withField("units2", "timer", "Lab", true);
+  withField("spells", "timer", "Lab", true);
+  withField("siege_machines", "timer", "Lab", true);
   // Thợ phụ: field "helper_cooldown".
   withField("helpers", "helper_cooldown", "Thợ phụ");
   // Tháp đồng hồ: boosts.clocktower_cooldown.
@@ -186,17 +200,14 @@ function finishClock(finishAt) {
   return `${p(d.getHours())}:${p(d.getMinutes())} ${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()}`;
 }
 
-// Thời gian còn lại, luôn hiện tới giây: "2h19m05s" / "45m30s" / "30s".
+// Thời gian còn lại dạng HH:mm, giờ có thể lớn hơn 24.
 function remaining(finishAt, nowSec) {
   let s = Math.floor(finishAt - nowSec);
   if (s < 0) s = 0;
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
   const p = (n) => String(n).padStart(2, "0");
-  if (h > 0) return `${h}h${p(m)}m${p(sec)}s`;
-  if (m > 0) return `${m}m${p(sec)}s`;
-  return `${sec}s`;
+  return `${p(h)}:${p(m)}`;
 }
 
 function formatDuration(totalSec) {
