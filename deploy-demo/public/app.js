@@ -159,6 +159,7 @@ function setActiveTab(tab) {
     panel.classList.toggle("active", panel.id === `tab-${tab}`);
   }
   $("serverSchedule").hidden = tab !== "parse";
+  $("scheduleBtn").hidden = tab !== "parse";
 }
 
 // ---- Bảng ----
