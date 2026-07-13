@@ -16,6 +16,8 @@ let clockBaseSec = 0;
 let clockBaseMs = Date.now();
 let lastDisplayNow = -1;
 let activeTab = "parse";
+let potionPreview = false;
+let potionPreviewStartedAt = 0;
 
 const TASK_TABS = [
   { category: "Thợ xây", body: "body-builders", count: "count-builders" },
@@ -173,13 +175,20 @@ async function loadCatalog() {
   return catalog;
 }
 
-function renderTable(tbodyId, rows, onDelete) {
+function renderTable(tbodyId, rows, onDelete, previewPotions = false) {
   const now = displayNowSec();
   const tbody = $(tbodyId);
   tbody.innerHTML = "";
   for (const row of rows) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${esc(row.label)}</td><td>${remaining(row.finishAt, now)}</td><td>${finishClock(row.finishAt)}</td>`;
+    const boosted = previewPotions ? potionResult(row, now) : null;
+    const remainingHtml = boosted
+      ? `${remaining(row.finishAt, now)}<br><strong class="preview-value">${remaining(now + boosted.remainingSec, now)}</strong><br><span class="preview-saving">Giảm ${formatSeconds(boosted.savedSec)}</span>`
+      : remaining(row.finishAt, now);
+    const finishHtml = boosted
+      ? `${finishClock(row.finishAt)}<br><strong class="preview-value">${finishClock(now + boosted.remainingSec)}</strong>`
+      : finishClock(row.finishAt);
+    tr.innerHTML = `<td>${esc(row.label)}</td><td>${remainingHtml}</td><td>${finishHtml}</td>`;
     const td = document.createElement("td");
     const btn = document.createElement("button");
     btn.className = "icon";
@@ -199,11 +208,65 @@ function renderParsed() {
   };
   for (const tab of TASK_TABS) {
     const rows = parsed.filter((task) => task.category === tab.category);
-    renderTable(tab.body, rows, remove);
+    renderTable(tab.body, rows, remove, potionPreview);
     $(tab.count).textContent = rows.length;
   }
   $("parsedCount").textContent = parsed.length;
   $("taskActions").hidden = parsed.length === 0;
+}
+
+function potionCount(id) {
+  const value = Math.floor(Number($(id).value || 0));
+  return Math.max(0, Math.min(99, value));
+}
+
+function potionResult(task, now) {
+  let multiplier = 1;
+  let count = 0;
+  if (task.category === "Thợ xây") {
+    multiplier = 10;
+    count = potionCount("builderPotionCount");
+  } else if (task.category === "Lab") {
+    multiplier = 24;
+    count = potionCount("researchPotionCount");
+  }
+  if (!potionPreview || count === 0 || multiplier === 1) return null;
+
+  const previewStart = potionPreviewStartedAt || now;
+  const normalSec = Math.max(0, Math.floor(task.finishAt - previewStart));
+  const boostedWorkSec = count * 3600 * multiplier;
+  const boostedDurationSec = normalSec <= boostedWorkSec
+    ? Math.ceil(normalSec / multiplier)
+    : normalSec - count * 3600 * (multiplier - 1);
+  const previewFinishAt = previewStart + boostedDurationSec;
+  return {
+    remainingSec: Math.max(0, previewFinishAt - now),
+    savedSec: task.finishAt - previewFinishAt,
+  };
+}
+
+function formatSeconds(totalSec) {
+  const seconds = Math.max(0, Math.floor(totalSec));
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(h)}:${p(m)}:${p(s)}`;
+}
+
+function togglePotionPreview() {
+  potionPreview = !potionPreview;
+  potionPreviewStartedAt = potionPreview ? displayNowSec() : 0;
+  const button = $("potionPreviewBtn");
+  button.textContent = potionPreview ? "Tắt Preview" : "Bật Preview";
+  button.setAttribute("aria-pressed", String(potionPreview));
+  button.classList.toggle("active", potionPreview);
+  renderParsed();
+}
+
+function refreshPotionPreview() {
+  if (potionPreview) potionPreviewStartedAt = displayNowSec();
+  renderParsed();
 }
 
 function parseCurrentJson(options = {}) {
@@ -505,6 +568,9 @@ $("telegramChatId").onchange = saveChannelConfig;
 $("json").onchange = () => saveJson($("json").value);
 $("clearJsonBtn").onclick = clearJson;
 $("testWebhookBtn").onclick = testWebhook;
+$("potionPreviewBtn").onclick = togglePotionPreview;
+$("builderPotionCount").oninput = refreshPotionPreview;
+$("researchPotionCount").oninput = refreshPotionPreview;
 for (const input of document.querySelectorAll('input[name="channel"]')) {
   input.onchange = () => {
     setChannel(input.value);

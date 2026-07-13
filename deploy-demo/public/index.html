@@ -51,6 +51,20 @@
               <input id="speed10x" type="checkbox" role="switch" />
             </label>
 
+            <div class="potion-preview">
+              <div class="row">
+                <b>Preview dùng thuốc</b>
+                <button id="potionPreviewBtn" class="ghost" type="button" aria-pressed="false">Bật Preview</button>
+              </div>
+              <div class="potion-inputs">
+                <label for="builderPotionCount">Thuốc Thợ xây (10x)</label>
+                <input id="builderPotionCount" type="number" min="0" max="99" value="1" inputmode="numeric" />
+                <label for="researchPotionCount">Thuốc Nghiên cứu (24x)</label>
+                <input id="researchPotionCount" type="number" min="0" max="99" value="1" inputmode="numeric" />
+              </div>
+              <p class="sub potion-note">Mỗi lọ kéo dài hiệu lực thêm 1 giờ. Preview không thay đổi lịch server.</p>
+            </div>
+
             <label>Kênh gửi</label>
             <div class="radio-row">
               <label><input type="radio" name="channel" value="google" checked /> Google Chat</label>
