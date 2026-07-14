@@ -234,15 +234,19 @@ function potionResult(task, now) {
 
   const previewStart = potionPreviewStartedAt || now;
   const normalSec = Math.max(0, Math.floor(task.finishAt - previewStart));
-  const boostedWorkSec = count * 3600 * multiplier;
-  const boostedDurationSec = normalSec <= boostedWorkSec
-    ? Math.ceil(normalSec / multiplier)
-    : normalSec - count * 3600 * (multiplier - 1);
+  const boostedDurationSec = applyPotionDuration(normalSec, multiplier, count);
   const previewFinishAt = previewStart + boostedDurationSec;
   return {
     remainingSec: Math.max(0, previewFinishAt - now),
     savedSec: task.finishAt - previewFinishAt,
   };
+}
+
+function applyPotionDuration(normalSec, multiplier, count) {
+  const boostedWorkSec = count * 3600 * multiplier;
+  return normalSec <= boostedWorkSec
+    ? Math.ceil(normalSec / multiplier)
+    : normalSec - count * 3600 * (multiplier - 1);
 }
 
 function formatSeconds(totalSec) {
@@ -269,6 +273,52 @@ function refreshPotionPreview() {
   renderParsed();
 }
 
+async function usePotion(category, arrayKeys, multiplier, countId, potionName) {
+  const count = potionCount(countId);
+  if (count === 0) return toast("Số lượng thuốc phải lớn hơn 0.");
+  if (!parsed.some((task) => task.category === category)) {
+    return toast(`Không có việc ${category} đang chạy.`);
+  }
+  if (!confirm(`Xác nhận đã dùng ${count} ${potionName} trong Clash of Clans?`)) return;
+
+  const oldJson = $("json").value;
+  const oldParsed = parsed;
+  try {
+    const root = JSON.parse(oldJson);
+    const timestamp = Number(root.timestamp || 0);
+    const now = nowSec();
+    for (const key of arrayKeys) {
+      const rows = Array.isArray(root[key]) ? root[key] : [];
+      for (const row of rows) {
+        const timer = Number(row?.timer || 0);
+        if (timer <= 0) continue;
+        const normalSec = Math.max(0, timestamp + timer - now);
+        const boostedSec = applyPotionDuration(normalSec, multiplier, count);
+        row.timer = Math.max(1, now + boostedSec - timestamp);
+      }
+    }
+
+    const updatedJson = JSON.stringify(root);
+    $("json").value = updatedJson;
+    parsed = parseVillage(updatedJson, now, catalog);
+    potionPreview = false;
+    potionPreviewStartedAt = 0;
+    $("potionPreviewBtn").textContent = "Bật Preview";
+    $("potionPreviewBtn").setAttribute("aria-pressed", "false");
+    $("potionPreviewBtn").classList.remove("active");
+    renderParsed();
+
+    const scheduled = await scheduleAll(`Đã dùng ${count} ${potionName} và cập nhật lịch.`);
+    if (!scheduled) throw new Error("Không cập nhật được lịch server");
+    await saveJson(updatedJson);
+  } catch (e) {
+    $("json").value = oldJson;
+    parsed = oldParsed;
+    renderParsed();
+    toast(`Không sử dụng được thuốc: ${e.message}`);
+  }
+}
+
 function parseCurrentJson(options = {}) {
   const shouldSave = options.save !== false;
   const shouldSwitchTab = options.switchTab !== false;
@@ -288,7 +338,7 @@ function parseCurrentJson(options = {}) {
 }
 
 function doParse() {
-  parseCurrentJson({ save: true, switchTab: true });
+  parseCurrentJson({ save: true, switchTab: false });
 }
 
 function renderDetails() {
@@ -444,17 +494,23 @@ async function loadServer() {
   }
 }
 
-async function scheduleAll() {
+async function scheduleAll(successMessage = "") {
   const config = channelPayload();
-  if (channel === "google" && !config.webhookUrl)
-    return toast("Hãy nhập Google Chat webhook URL.");
+  if (channel === "google" && !config.webhookUrl) {
+    toast("Hãy nhập Google Chat webhook URL.");
+    return false;
+  }
   if (
     channel === "telegram" &&
     (!config.telegramBotToken || !config.telegramChatId)
   ) {
-    return toast("Hãy nhập Telegram bot token và chat id.");
+    toast("Hãy nhập Telegram bot token và chat id.");
+    return false;
   }
-  if (parsed.length === 0) return toast("Chưa có việc nào để đặt.");
+  if (parsed.length === 0) {
+    toast("Chưa có việc nào để đặt.");
+    return false;
+  }
   const tasks = parsed.map((t) => ({
     finishAt: t.finishAt,
     label: t.label,
@@ -465,11 +521,11 @@ async function scheduleAll() {
     // API thay toàn bộ lịch cũ bằng lịch mới; dùng kết quả trả về để hiện ngay.
     serverTasks = res.tasks || [];
     renderServer();
-    toast(
-      `Đã thay ${res.replaced || 0} lịch cũ và đặt ${res.scheduled} lịch mới.`,
-    );
+    toast(successMessage || `Đã thay ${res.replaced || 0} lịch cũ và đặt ${res.scheduled} lịch mới.`);
+    return true;
   } catch (e) {
     toast("Lỗi đặt lịch: " + e.message);
+    return false;
   }
 }
 
@@ -559,7 +615,7 @@ $("registerBtn").onclick = () => doAuth("/api/register");
 $("logoutBtn").onclick = logout;
 $("parseBtn").onclick = doParse;
 $("reloadBtn").onclick = doParse;
-$("scheduleBtn").onclick = scheduleAll;
+$("scheduleBtn").onclick = () => scheduleAll();
 $("refreshBtn").onclick = loadServer;
 $("cancelAllBtn").onclick = cancelAll;
 $("webhook").onchange = saveChannelConfig;
@@ -571,6 +627,16 @@ $("testWebhookBtn").onclick = testWebhook;
 $("potionPreviewBtn").onclick = togglePotionPreview;
 $("builderPotionCount").oninput = refreshPotionPreview;
 $("researchPotionCount").oninput = refreshPotionPreview;
+$("useBuilderPotionBtn").onclick = () =>
+  usePotion("Thợ xây", ["buildings"], 10, "builderPotionCount", "Thuốc Thợ xây");
+$("useResearchPotionBtn").onclick = () =>
+  usePotion(
+    "Lab",
+    ["units", "units2", "spells", "siege_machines"],
+    24,
+    "researchPotionCount",
+    "Thuốc Nghiên cứu",
+  );
 for (const input of document.querySelectorAll('input[name="channel"]')) {
   input.onchange = () => {
     setChannel(input.value);

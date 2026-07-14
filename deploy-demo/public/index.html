@@ -62,7 +62,11 @@
                 <label for="researchPotionCount">Thuốc Nghiên cứu (24x)</label>
                 <input id="researchPotionCount" type="number" min="0" max="99" value="1" inputmode="numeric" />
               </div>
-              <p class="sub potion-note">Mỗi lọ kéo dài hiệu lực thêm 1 giờ. Preview không thay đổi lịch server.</p>
+              <div class="potion-actions">
+                <button id="useBuilderPotionBtn" class="ghost" type="button">Sử dụng Thuốc Thợ xây</button>
+                <button id="useResearchPotionBtn" class="ghost" type="button">Sử dụng Thuốc Nghiên cứu</button>
+              </div>
+              <p class="sub potion-note">Mỗi lọ kéo dài hiệu lực thêm 1 giờ. Preview chỉ xem thử; nút Sử dụng sẽ thay lịch server.</p>
             </div>
 
             <label>Kênh gửi</label>
