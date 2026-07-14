@@ -34,6 +34,8 @@
         <button class="tab" type="button" data-tab="work-builder-base">Căn cứ thợ xây (<span id="count-builder-base">0</span>)</button>
         <button class="tab" type="button" data-tab="work-helper">Thợ phụ (<span id="count-helper">0</span>)</button>
         <button class="tab" type="button" data-tab="work-clock">Tháp đồng hồ (<span id="count-clock">0</span>)</button>
+        <button class="tab" type="button" data-tab="upgrade-planner">Tính nâng cấp</button>
+        <button class="tab" type="button" data-tab="summer-optimizer">Tối ưu Summer Jam</button>
       </nav>
 
       <section id="tab-parse" class="tab-panel active">
@@ -106,11 +108,91 @@
         </div>
       </section>
 
+      <section id="tab-summer-optimizer" class="tab-panel">
+        <div class="card planner-card">
+          <div class="row">
+            <h2>Lịch nâng tối ưu thời gian Summer Jam</h2>
+            <span id="optimizerPhase" class="pill">Chưa có phase</span>
+          </div>
+          <div class="planner-discounts optimizer-controls">
+            <label for="optimizerBuilderCount">Số thợ</label>
+            <input id="optimizerBuilderCount" type="number" min="1" max="7" value="5" inputmode="numeric" />
+            <label for="optimizerGoldPass">Vé Vàng</label>
+            <select id="optimizerGoldPass">
+              <option value="0">Không áp dụng</option>
+              <option value="10">Giảm 10%</option>
+              <option value="15">Giảm 15%</option>
+              <option value="20">Giảm 20%</option>
+            </select>
+          </div>
+          <p id="optimizerInfo" class="sub planner-note"></p>
+          <div class="summary-grid planner-summary">
+            <div class="metric"><span>Nâng cấp phù hợp</span><b id="optimizerEligible">0</b></div>
+            <div class="metric"><span>Kịp bắt đầu ưu đãi</span><b id="optimizerScheduled">0</b></div>
+            <div class="metric"><span>Tổng thời gian tiết kiệm</span><b id="optimizerSaved">0s</b></div>
+            <div class="metric"><span>Sự kiện kết thúc</span><b id="optimizerDeadline">-</b></div>
+          </div>
+          <div id="optimizerPhaseCards" class="optimizer-phase-cards"></div>
+          <p id="optimizerEmpty" class="sub planner-empty" hidden></p>
+        </div>
+      </section>
+
       <section id="tab-work-builders" class="tab-panel task-panel"><div class="card"><div class="table-wrap"><table><thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead><tbody id="body-builders"></tbody></table></div></div></section>
       <section id="tab-work-lab" class="tab-panel task-panel"><div class="card"><div class="table-wrap"><table><thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead><tbody id="body-lab"></tbody></table></div></div></section>
       <section id="tab-work-builder-base" class="tab-panel task-panel"><div class="card"><div class="table-wrap"><table><thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead><tbody id="body-builder-base"></tbody></table></div></div></section>
       <section id="tab-work-helper" class="tab-panel task-panel"><div class="card"><div class="table-wrap"><table><thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead><tbody id="body-helper"></tbody></table></div></div></section>
       <section id="tab-work-clock" class="tab-panel task-panel"><div class="card"><div class="table-wrap"><table><thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead><tbody id="body-clock"></tbody></table></div></div></section>
+
+      <section id="tab-upgrade-planner" class="tab-panel">
+        <div class="card planner-card">
+          <div class="row">
+            <h2>Tính tài nguyên và thời gian nâng tối đa</h2>
+            <span id="plannerTownHall" class="pill">Nhà Chính ?</span>
+          </div>
+          <div class="planner-controls">
+            <label for="buildingSearch">Hạng mục nâng cấp</label>
+            <div id="buildingCombobox" class="planner-combobox">
+              <input id="buildingSearch" type="search" placeholder="Tìm công trình hoặc tướng..." autocomplete="off" role="combobox" aria-expanded="false" aria-controls="buildingOptions" />
+              <div id="buildingOptions" class="planner-options" role="listbox" hidden></div>
+            </div>
+          </div>
+          <div class="planner-discounts">
+            <button id="summerJamBtn" class="ghost" type="button" aria-pressed="false">Áp dụng Summer Jam</button>
+            <label for="goldPassSelect">Vé Vàng</label>
+            <select id="goldPassSelect">
+              <option value="0">Không áp dụng</option>
+              <option value="10">Giảm 10%</option>
+              <option value="15">Giảm 15%</option>
+              <option value="20">Giảm 20%</option>
+            </select>
+          </div>
+          <p id="summerJamInfo" class="sub planner-note"></p>
+          <div id="plannerResult" hidden>
+            <div class="summary-grid planner-summary">
+              <div class="metric"><span>Số lượng</span><b id="plannerCount">0</b></div>
+              <div class="metric"><span>Cấp hiện tại</span><b id="plannerCurrentLevel">0</b></div>
+              <div class="metric"><span>Cấp tối đa hiện tại</span><b id="plannerMaxLevel">0</b></div>
+              <div class="metric"><span>Số cấp còn lại</span><b id="plannerLevels">0</b></div>
+              <div class="metric"><span>Thời gian gốc</span><b id="plannerBaseTime">0s</b></div>
+              <div class="metric"><span>Thời gian sau giảm</span><b id="plannerDiscountTime">0s</b></div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Tài nguyên</th><th>Gốc</th><th>Sau giảm</th><th>Tiết kiệm</th></tr></thead>
+                <tbody id="plannerResourceBody"></tbody>
+              </table>
+            </div>
+            <h3>Chi tiết từng cấp</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Hạng mục</th><th>Nâng cấp</th><th>Thời gian gốc</th><th>Sau giảm</th><th>Xong lúc</th></tr></thead>
+                <tbody id="plannerLevelBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <p id="plannerEmpty" class="sub planner-empty">Hãy dán và phân tích JSON làng trước.</p>
+        </div>
+      </section>
 
       <div id="taskActions" hidden>
         <button id="reloadBtn" class="ghost fullw">Tải lại JSON</button>
@@ -138,7 +220,7 @@
   <div id="toast"></div>
 
   <script src="config.js?v=1"></script>
-  <script src="parser.js?v=24"></script>
-  <script src="app.js?v=24"></script>
+  <script src="parser.js?v=27"></script>
+  <script src="app.js?v=35"></script>
 </body>
 </html>

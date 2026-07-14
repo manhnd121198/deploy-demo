@@ -3,11 +3,14 @@
 
 const $ = (id) => document.getElementById(id);
 const LS_TOKEN = "coc_token";
+const LS_PLANNER_BUILDING = "coc_planner_building";
+const LS_OPTIMIZER_BUILDERS = "coc_optimizer_builders";
 const API_BASE = String(window.COC_API_BASE || "").replace(/\/$/, "");
 
 let token = localStorage.getItem(LS_TOKEN) || "";
 let account = "";
 let parsed = []; // việc parse ở client, chưa gửi server
+let plannerItems = [];
 let serverTasks = []; // việc đã lên lịch trên server (giữ ở client để hiện ngay)
 let catalog = null;
 let channel = "google";
@@ -18,6 +21,8 @@ let lastDisplayNow = -1;
 let activeTab = "parse";
 let potionPreview = false;
 let potionPreviewStartedAt = 0;
+let summerJamEnabled = false;
+let plannerBuildingId = localStorage.getItem(LS_PLANNER_BUILDING) || "";
 
 const TASK_TABS = [
   { category: "Thợ xây", body: "body-builders", count: "count-builders" },
@@ -139,6 +144,9 @@ async function enterApp() {
   await loadCatalog();
   if ($("json").value.trim()) {
     parseCurrentJson({ save: false, switchTab: false, quiet: true });
+  } else {
+    renderUpgradePlannerOptions();
+    renderSummerOptimizer();
   }
   await loadServer();
 }
@@ -327,12 +335,18 @@ function parseCurrentJson(options = {}) {
   if (shouldSave) saveJson(jsonText);
   try {
     parsed = parseVillage(jsonText, nowSec(), catalog);
+    plannerItems = parseVillageItems(jsonText, catalog);
     renderParsed();
+    renderUpgradePlannerOptions();
+    renderSummerOptimizer();
     if (parsed.length > 0 && shouldSwitchTab) setActiveTab("work-builders");
     if (parsed.length === 0 && !quiet) toast("Không có việc nào đang chạy.");
   } catch (e) {
     parsed = [];
+    plannerItems = [];
     renderParsed();
+    renderUpgradePlannerOptions();
+    renderSummerOptimizer();
     if (!quiet) toast("Dữ liệu không hợp lệ: " + e.message);
   }
 }
@@ -459,6 +473,326 @@ function renderSummary(summary) {
 
 function summaryLabel(summary) {
   return `${Number(summary.currentCount).toLocaleString()} hiện có · ${formatDuration(summary.parallelTimeSec)} với 5 thợ`;
+}
+
+function summerJamPhases() {
+  return [
+    ["2026-07-01T08:00:00Z", "2026-07-08T08:00:00Z", "Gold", "Vàng"],
+    ["2026-07-08T08:00:00Z", "2026-07-15T08:00:00Z", "Elixir", "Tiên dược"],
+    ["2026-07-15T08:00:00Z", "2026-07-22T08:00:00Z", "Dark Elixir", "Tiên dược Hắc ám"],
+    ["2026-07-22T08:00:00Z", "2026-08-01T08:00:00Z", "all", "mọi tài nguyên"],
+  ].map(([start, end, resource, label]) => ({
+    start: Math.floor(Date.parse(start) / 1000),
+    end: Math.floor(Date.parse(end) / 1000),
+    resource,
+    label,
+  }));
+}
+
+function summerJamPhase(date = new Date()) {
+  const time = Math.floor(date.getTime() / 1000);
+  return summerJamPhases().find((phase) => time >= phase.start && time < phase.end) || null;
+}
+
+function buildSummerOptimizerPlan(builderCount, goldPassPercent) {
+  const ignoredCollectors = new Set(["1000002", "1000004", "1000023"]);
+  const now = nowSec();
+  const phases = summerJamPhases().filter((phase) => phase.end > now);
+  if (phases.length === 0) return { phases: [], eligible: 0, rows: [], saved: 0 };
+  const townHall = Number(plannerItems[0]?.townHallLevel || 0);
+  const summerPercent = townHall > 0 && townHall <= 16 ? 40 : 25;
+  const factor = (1 - summerPercent / 100) * (1 - goldPassPercent / 100);
+  const active = plannerItems
+    .filter((item) => ["Công trình làng chính", "Anh hùng"].includes(item.source) && item.finishAt > now)
+    .map((item) => item.finishAt)
+    .sort((a, b) => a - b);
+  const workerTotal = Math.max(builderCount, active.length);
+  const workers = Array.from({ length: workerTotal }, (_, index) => ({ id: index + 1, at: active[index] || now }));
+  const chains = [];
+  for (const item of plannerItems) {
+    if (!["Công trình làng chính", "Anh hùng"].includes(item.source) || !item.matched) continue;
+    if (ignoredCollectors.has(item.dataId)) continue;
+    for (let index = 0; index < Number(item.count || 1); index += 1) {
+      const levels = (item.upgradeLevels || []).slice(item.timer > 0 && index === 0 ? 1 : 0);
+      if (levels.length === 0) continue;
+      chains.push({
+        name: `${item.displayName || item.name}${Number(item.count || 1) > 1 ? ` #${index + 1}` : ""}`,
+        levels,
+        next: 0,
+        at: item.timer > 0 && index === 0 ? item.finishAt : now,
+      });
+    }
+  }
+  const eligibleResources = new Set(phases.flatMap((phase) => phase.resource === "all" ? ["Gold", "Elixir", "Dark Elixir"] : [phase.resource]));
+  const eligible = chains.reduce((sum, chain) =>
+    sum + chain.levels.filter((level) => eligibleResources.has(level.resource)).length, 0);
+  const rows = [];
+  let saved = 0;
+  while (true) {
+    workers.sort((a, b) => a.at - b.at || a.id - b.id);
+    const worker = workers[0];
+    if (!worker || worker.at >= phases[phases.length - 1].end) break;
+    const unfinished = chains.filter((chain) => chain.next < chain.levels.length);
+    if (unfinished.length === 0) break;
+    const candidates = unfinished.map((chain) => {
+      const level = chain.levels[chain.next];
+      const availableAt = Math.max(now, worker.at, chain.at);
+      const phase = phases.find((entry) => {
+        const startAt = Math.max(availableAt, entry.start);
+        const resourceMatches = entry.resource === "all"
+          ? eligibleResources.has(level.resource)
+          : entry.resource === level.resource;
+        return startAt < entry.end && resourceMatches;
+      });
+      return phase ? { chain, level, phase, startAt: Math.max(availableAt, phase.start) } : null;
+    }).filter(Boolean);
+    if (candidates.length === 0) break;
+    candidates.sort((a, b) => a.startAt - b.startAt || Number(a.level.timeSec || 0) - Number(b.level.timeSec || 0));
+    const earliestStart = candidates[0].startAt;
+    const earliest = candidates.filter((candidate) => candidate.startAt === earliestStart);
+    const remainingWindow = earliest[0].phase.end - earliestStart;
+    const finalCandidates = earliest.filter((candidate) =>
+      Math.ceil(Number(candidate.level.timeSec || 0) * factor) >= remainingWindow,
+    );
+    const pool = finalCandidates.length ? finalCandidates : earliest;
+    pool.sort((a, b) => {
+      const difference = Number(a.level.timeSec || 0) - Number(b.level.timeSec || 0);
+      return finalCandidates.length ? -difference : difference;
+    });
+    const { chain, level, phase, startAt } = pool[0];
+    const baseTime = Number(level.timeSec || 0);
+    const duration = Math.ceil(baseTime * factor);
+    const finishAt = startAt + duration;
+    const saving = baseTime - duration;
+    rows.push({ worker: worker.id, startAt, finishAt, duration, saving, phase: phase.label, name: chain.name, from: Number(level.level) - 1, to: Number(level.level) });
+    saved += saving;
+    worker.at = finishAt;
+    chain.at = finishAt;
+    chain.next += 1;
+  }
+  rows.sort((a, b) => a.startAt - b.startAt || a.worker - b.worker);
+  return { phases, eligible, rows, saved, summerPercent };
+}
+
+function renderSummerOptimizer() {
+  const builders = Math.max(1, Math.min(7, Number($("optimizerBuilderCount").value || 5)));
+  const plan = buildSummerOptimizerPlan(builders, Number($("optimizerGoldPass").value || 0));
+  const phaseCards = $("optimizerPhaseCards");
+  phaseCards.innerHTML = "";
+  $("optimizerEligible").textContent = plan.eligible.toLocaleString();
+  $("optimizerScheduled").textContent = plan.rows.length.toLocaleString();
+  $("optimizerSaved").textContent = formatDuration(plan.saved);
+  const currentPhase = summerJamPhase();
+  const finalPhase = plan.phases[plan.phases.length - 1];
+  $("optimizerPhase").textContent = currentPhase ? `Hiện tại: ${currentPhase.label}` : "Chờ phase tiếp theo";
+  $("optimizerDeadline").textContent = finalPhase ? finishClock(finalPhase.end) : "-";
+  $("optimizerInfo").textContent = plan.phases.length
+    ? `Không giới hạn tài nguyên. Lịch tính cả ${plan.phases.map((phase) => phase.label).join(", ")} và áp dụng mức giảm Summer Jam ${plan.summerPercent}% tại lúc bắt đầu nâng.`
+    : "Hiện không có phase Summer Jam đang hoạt động.";
+  for (const phase of plan.phases) {
+    const phaseRows = plan.rows.filter((row) => row.phase === phase.label);
+    const card = document.createElement("div");
+    card.className = "optimizer-phase-card";
+    const body = phaseRows.length
+      ? phaseRows.map((row) => `<tr><td>Thợ ${row.worker}</td><td>${finishClock(row.startAt)}</td><td>${esc(row.name)}</td><td>${row.from} → ${row.to}</td><td>${formatDuration(row.duration)}</td><td>${finishClock(row.finishAt)}</td><td>${formatDuration(row.saving)}</td></tr>`).join("")
+      : '<tr><td colspan="7" class="muted">Không có nâng cấp được xếp trong phase này.</td></tr>';
+    card.innerHTML = `
+      <div class="row">
+        <h3>Phase ${esc(phase.label)}</h3>
+        <span class="pill">${phaseRows.length} nâng cấp</span>
+      </div>
+      <p class="sub planner-note">${finishClock(phase.start)} → ${finishClock(phase.end)}</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Thợ</th><th>Bắt đầu</th><th>Hạng mục</th><th>Nâng cấp</th><th>Thời gian sau giảm</th><th>Xong lúc</th><th>Tiết kiệm</th></tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>`;
+    phaseCards.appendChild(card);
+  }
+  $("optimizerEmpty").hidden = plan.rows.length > 0;
+  $("optimizerEmpty").textContent = plan.phases.length && plan.eligible > 0
+    ? "Không có thợ nào kịp bắt đầu nâng trước khi Summer Jam kết thúc."
+    : "Không có nâng cấp phù hợp với các phase còn lại.";
+}
+
+function plannerGroups() {
+  const groups = new Map();
+  for (const item of plannerItems) {
+    if (!["Công trình làng chính", "Anh hùng"].includes(item.source) || !item.matched) continue;
+    const group = groups.get(item.dataId) || [];
+    group.push(item);
+    groups.set(item.dataId, group);
+  }
+  return groups;
+}
+
+function renderUpgradePlannerOptions(queryText = null) {
+  const options = $("buildingOptions");
+  const query = String(queryText || "").trim().toLocaleLowerCase("vi");
+  const groups = plannerGroups();
+  options.innerHTML = "";
+
+  const entries = [...groups.entries()]
+    .filter(([, items]) => (items[0].displayName || items[0].name).toLocaleLowerCase("vi").includes(query))
+    .sort((a, b) => (a[1][0].displayName || a[1][0].name).localeCompare(b[1][0].displayName || b[1][0].name, "vi"));
+  for (const [dataId, items] of entries) {
+    const option = document.createElement("button");
+    const count = items.reduce((sum, item) => sum + Number(item.count || 1), 0);
+    option.type = "button";
+    option.className = `planner-option${dataId === plannerBuildingId ? " selected" : ""}`;
+    option.setAttribute("role", "option");
+    const category = items[0].source === "Anh hùng" ? "Tướng" : "Công trình";
+    option.textContent = `${items[0].displayName || items[0].name} (${category}, ${count})`;
+    option.onclick = () => {
+      plannerBuildingId = dataId;
+      localStorage.setItem(LS_PLANNER_BUILDING, plannerBuildingId);
+      $("buildingSearch").value = option.textContent;
+      closeBuildingOptions();
+      renderUpgradePlanner();
+    };
+    options.appendChild(option);
+  }
+  if (entries.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "planner-no-option";
+    empty.textContent = plannerItems.length ? "Không tìm thấy công trình" : "Chưa có dữ liệu JSON";
+    options.appendChild(empty);
+  } else if (queryText === null) {
+    if (!groups.has(plannerBuildingId)) {
+      plannerBuildingId = entries[0][0];
+      localStorage.setItem(LS_PLANNER_BUILDING, plannerBuildingId);
+    }
+    const selectedItems = groups.get(plannerBuildingId);
+    const count = selectedItems.reduce((sum, item) => sum + Number(item.count || 1), 0);
+    const category = selectedItems[0].source === "Anh hùng" ? "Tướng" : "Công trình";
+    $("buildingSearch").value = `${selectedItems[0].displayName || selectedItems[0].name} (${category}, ${count})`;
+  }
+  renderUpgradePlanner();
+}
+
+function openBuildingOptions() {
+  renderUpgradePlannerOptions("");
+  $("buildingOptions").hidden = false;
+  $("buildingSearch").setAttribute("aria-expanded", "true");
+}
+
+function closeBuildingOptions() {
+  $("buildingOptions").hidden = true;
+  $("buildingSearch").setAttribute("aria-expanded", "false");
+}
+
+function calculateUpgradePlan(items, goldPassPercent, summerJam) {
+  const result = { count: 0, levels: 0, baseTime: 0, discountedTime: 0, resources: {}, details: [] };
+  const goldFactor = 1 - goldPassPercent / 100;
+  for (const item of items) {
+    const itemCount = Number(item.count || 1);
+    result.count += itemCount;
+    const finishTimes = Array.from({ length: itemCount }, () => nowSec());
+    for (const [levelIndex, level] of (item.upgradeLevels || []).entries()) {
+      const count = Number(level.count || 1);
+      const runningCount = levelIndex === 0 && item.timer > 0 ? 1 : 0;
+      const runningTime = runningCount ? Math.max(0, Number(item.finishAt || 0) - nowSec()) : 0;
+      const summerApplies = summerJam?.enabled &&
+        (summerJam.resource === "all" || level.resource === summerJam.resource);
+      const summerFactor = summerApplies ? 1 - summerJam.percent / 100 : 1;
+      const factor = summerFactor * goldFactor;
+      const baseTime = Number(level.timeSec || 0);
+      result.levels += count;
+      const discountedTime = Math.ceil(baseTime * factor);
+      result.baseTime += runningTime + baseTime * (count - runningCount);
+      result.discountedTime += runningTime + discountedTime * (count - runningCount);
+      for (let index = 0; index < count; index += 1) {
+        const running = index < runningCount;
+        const rowBaseTime = running ? runningTime : baseTime;
+        const rowDiscountedTime = running ? runningTime : discountedTime;
+        finishTimes[index] += rowDiscountedTime;
+        result.details.push({
+          building: `${item.displayName || item.name}${itemCount > 1 ? ` #${index + 1}` : ""}`,
+          fromLevel: Number(level.level || 0) - 1,
+          toLevel: Number(level.level || 0),
+          baseTime: rowBaseTime,
+          discountedTime: rowDiscountedTime,
+          finishAt: finishTimes[index],
+          running,
+        });
+      }
+
+      const costs = level.costs && typeof level.costs === "object"
+        ? level.costs
+        : { [level.resource || "Unknown"]: Number(level.cost || 0) };
+      for (const [resource, value] of Object.entries(costs)) {
+        const payableCount = count - runningCount;
+        const base = Number(value || 0) * payableCount;
+        const current = result.resources[resource] || { base: 0, discounted: 0 };
+        current.base += base;
+        current.discounted += Math.ceil(Number(value || 0) * factor) * payableCount;
+        result.resources[resource] = current;
+      }
+    }
+  }
+  return result;
+}
+
+function renderUpgradePlanner() {
+  const groups = plannerGroups();
+  const items = groups.get(plannerBuildingId) || [];
+  const townHall = Number(plannerItems[0]?.townHallLevel || 0);
+  const phase = summerJamPhase();
+  const summerPercent = townHall > 0 && townHall <= 16 ? 40 : 25;
+  $("plannerTownHall").textContent = townHall ? `Nhà Chính ${townHall}` : "Nhà Chính ?";
+  $("summerJamInfo").textContent = phase
+    ? `Summer Jam 2026 hiện áp dụng cho nâng cấp bằng ${phase.label}: giảm ${summerPercent}% chi phí và thời gian ở Nhà Chính ${townHall || "?"}.`
+    : "Summer Jam 2026 hiện không trong thời gian hiệu lực.";
+  $("plannerResult").hidden = items.length === 0;
+  $("plannerEmpty").hidden = items.length > 0;
+  if (items.length === 0) return;
+
+  const plan = calculateUpgradePlan(items, Number($("goldPassSelect").value || 0), {
+    enabled: summerJamEnabled && Boolean(phase),
+    resource: phase?.resource,
+    percent: summerPercent,
+  });
+  $("plannerCount").textContent = plan.count.toLocaleString();
+  const currentLevels = [...new Set(items.map((item) => Number(item.currentLevel || 0)))].sort((a, b) => a - b);
+  const maxLevel = Math.max(0, ...items.map((item) => Number(item.maxLevel || 0)));
+  $("plannerCurrentLevel").textContent = currentLevels.join(", ");
+  $("plannerMaxLevel").textContent = maxLevel.toLocaleString();
+  $("plannerLevels").textContent = plan.levels.toLocaleString();
+  $("plannerBaseTime").textContent = formatDuration(plan.baseTime);
+  $("plannerDiscountTime").textContent = formatDuration(plan.discountedTime);
+
+  const tbody = $("plannerResourceBody");
+  tbody.innerHTML = "";
+  const resources = Object.entries(plan.resources)
+    .filter(([, amounts]) => amounts.base > 0)
+    .sort((a, b) => b[1].base - a[1].base);
+  for (const [resource, amounts] of resources) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${esc(viResource(resource))}</td><td>${amounts.base.toLocaleString()}</td><td>${amounts.discounted.toLocaleString()}</td><td>${(amounts.base - amounts.discounted).toLocaleString()}</td>`;
+    tbody.appendChild(tr);
+  }
+  if (resources.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" class="muted">Không cần thêm tài nguyên cho phần đang nâng.</td></tr>';
+  }
+
+  const levelBody = $("plannerLevelBody");
+  levelBody.innerHTML = "";
+  for (const detail of plan.details) {
+    const tr = document.createElement("tr");
+    const running = detail.running ? ' <span class="pill">Đang nâng</span>' : "";
+    tr.innerHTML = `<td>${esc(detail.building)}${running}</td><td>${detail.fromLevel} → ${detail.toLevel}</td><td>${formatDuration(detail.baseTime)}</td><td>${formatDuration(detail.discountedTime)}</td><td>${finishClock(detail.finishAt)}</td>`;
+    levelBody.appendChild(tr);
+  }
+}
+
+function toggleSummerJam() {
+  summerJamEnabled = !summerJamEnabled;
+  const button = $("summerJamBtn");
+  button.classList.toggle("active", summerJamEnabled);
+  button.setAttribute("aria-pressed", String(summerJamEnabled));
+  button.textContent = summerJamEnabled ? "Bỏ Summer Jam" : "Áp dụng Summer Jam";
+  renderUpgradePlanner();
 }
 
 function renderServer() {
@@ -594,7 +928,9 @@ async function saveJson(jsonText) {
 function clearJson() {
   $("json").value = "";
   parsed = [];
+  plannerItems = [];
   renderParsed();
+  renderUpgradePlannerOptions();
   saveJson("");
   toast("Đã xóa JSON.");
 }
@@ -637,6 +973,25 @@ $("useResearchPotionBtn").onclick = () =>
     "researchPotionCount",
     "Thuốc Nghiên cứu",
   );
+$("buildingSearch").onfocus = openBuildingOptions;
+$("buildingSearch").onclick = () => $("buildingSearch").select();
+$("buildingSearch").oninput = () => {
+  plannerBuildingId = "";
+  renderUpgradePlannerOptions($("buildingSearch").value);
+  $("buildingOptions").hidden = false;
+  $("buildingSearch").setAttribute("aria-expanded", "true");
+};
+document.addEventListener("click", (event) => {
+  if (!$("buildingCombobox").contains(event.target)) closeBuildingOptions();
+});
+$("goldPassSelect").onchange = renderUpgradePlanner;
+$("summerJamBtn").onclick = toggleSummerJam;
+$("optimizerBuilderCount").value = localStorage.getItem(LS_OPTIMIZER_BUILDERS) || "5";
+$("optimizerBuilderCount").oninput = () => {
+  localStorage.setItem(LS_OPTIMIZER_BUILDERS, $("optimizerBuilderCount").value);
+  renderSummerOptimizer();
+};
+$("optimizerGoldPass").onchange = renderSummerOptimizer;
 for (const input of document.querySelectorAll('input[name="channel"]')) {
   input.onchange = () => {
     setChannel(input.value);

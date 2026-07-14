@@ -176,6 +176,7 @@ function parseVillageItems(jsonText, catalog) {
         count,
         nextLevel,
         remainingLevels: remainingLevels.length,
+        upgradeLevels: remainingLevels.map((level) => ({ ...level, count })),
         totalTimeSec,
         remainingDurations,
         costs,
