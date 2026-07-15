@@ -468,6 +468,8 @@ th:nth-child(2), td:nth-child(2) {
   font-variant-numeric: tabular-nums;
 }
 td:last-child, th:last-child { text-align: right; width: 1%; }
+.finish-clock { white-space: nowrap; }
+.finish-date::before { content: " "; }
 tbody:empty::after { content: "Chưa có việc nào."; color: var(--muted); }
 .detail-table th:nth-child(2), .detail-table td:nth-child(2),
 .detail-table th:nth-child(3), .detail-table td:nth-child(3),
@@ -598,6 +600,53 @@ tbody:empty::after { content: "Chưa có việc nào."; color: var(--muted); }
 }
 
 @media (max-width: 520px) {
+  #serverSchedule .table-wrap,
+  .task-panel .table-wrap { overflow-x: hidden; }
+  #serverSchedule table,
+  .task-panel table {
+    table-layout: fixed;
+    font-size: 0.8rem;
+  }
+  #serverSchedule th,
+  #serverSchedule td,
+  .task-panel th,
+  .task-panel td {
+    min-width: 0;
+    padding: 7px 6px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  #serverSchedule th:nth-child(1),
+  #serverSchedule td:nth-child(1),
+  .task-panel th:nth-child(1),
+  .task-panel td:nth-child(1) { width: 38%; }
+  #serverSchedule th:nth-child(2),
+  #serverSchedule td:nth-child(2),
+  .task-panel th:nth-child(2),
+  .task-panel td:nth-child(2) {
+    width: 22%;
+    min-width: 0;
+    white-space: nowrap;
+    font-size: 0.76rem;
+  }
+  #serverSchedule th:nth-child(3),
+  #serverSchedule td:nth-child(3),
+  .task-panel th:nth-child(3),
+  .task-panel td:nth-child(3) { width: auto; }
+  #serverSchedule th:last-child,
+  #serverSchedule td:last-child,
+  .task-panel th:last-child,
+  .task-panel td:last-child {
+    width: 34px;
+    padding-right: 4px;
+    padding-left: 4px;
+  }
+  #serverSchedule button.icon,
+  .task-panel button.icon { padding: 4px; }
+  .finish-time,
+  .finish-date { display: block; }
+  .finish-date::before { content: none; }
+  .finish-date { margin-top: 2px; color: var(--muted); font-size: 0.72rem; }
   #toast {
     right: 12px;
     bottom: max(16px, env(safe-area-inset-bottom));

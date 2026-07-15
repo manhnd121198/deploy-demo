@@ -200,6 +200,11 @@ async function loadCatalog() {
   return catalog;
 }
 
+function finishClockHtml(finishAt) {
+  const [time, date] = finishClock(finishAt).split(" ");
+  return `<span class="finish-clock"><span class="finish-time">${time}</span><span class="finish-date">${date}</span></span>`;
+}
+
 function renderTable(tbodyId, rows, onDelete, previewPotions = false) {
   const now = displayNowSec();
   const tbody = $(tbodyId);
@@ -211,8 +216,8 @@ function renderTable(tbodyId, rows, onDelete, previewPotions = false) {
       ? `${remaining(row.finishAt, now)}<br><strong class="preview-value">${remaining(now + boosted.remainingSec, now)}</strong><br><span class="preview-saving">Giảm ${formatSeconds(boosted.savedSec)}</span>`
       : remaining(row.finishAt, now);
     const finishHtml = boosted
-      ? `${finishClock(row.finishAt)}<br><strong class="preview-value">${finishClock(now + boosted.remainingSec)}</strong>`
-      : finishClock(row.finishAt);
+      ? `${finishClockHtml(row.finishAt)}<br><strong class="preview-value">${finishClockHtml(now + boosted.remainingSec)}</strong>`
+      : finishClockHtml(row.finishAt);
     tr.innerHTML = `<td>${esc(row.label)}</td><td>${remainingHtml}</td><td>${finishHtml}</td>`;
     const td = document.createElement("td");
     const btn = document.createElement("button");
