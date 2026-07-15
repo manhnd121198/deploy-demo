@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CoC Builder Alarm</title>
-  <link rel="stylesheet" href="styles.css?v=56" />
+  <link rel="stylesheet" href="styles.css?v=75" />
 </head>
 <body>
   <div class="wrap">
@@ -22,26 +22,18 @@
 
     <!-- Màn chính (sau đăng nhập) -->
     <div id="appView" hidden>
-      <header class="mobile-app-header">
-        <button id="mobileMenuBtn" class="mobile-menu-btn" type="button" aria-label="Mở menu" aria-controls="appSidebar" aria-expanded="false">☰</button>
-        <div class="mobile-app-identity">
-          <strong>CoC Builder Alarm</strong>
-          <span>Tài khoản: <b id="mobileWho"></b></span>
-        </div>
-      </header>
       <div id="sidebarOverlay" class="sidebar-overlay" hidden></div>
       <div class="app-shell">
         <aside id="appSidebar" class="sidebar" aria-label="Điều hướng và thiết lập">
           <div class="sidebar-header">
             <div class="sidebar-identity">
-              <h1 class="sidebar-brand">CoC Builder Alarm</h1>
-              <p class="sidebar-account">Tài khoản: <b id="who"></b></p>
-              <button id="logoutBtn" class="sidebar-logout" type="button">Đăng xuất</button>
+              <h1 class="sidebar-brand">CoC Alarm</h1>
             </div>
             <button id="mobileSidebarClose" class="mobile-sidebar-close" type="button" aria-label="Đóng menu">✕</button>
             <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Thu gọn menu" aria-expanded="true">‹</button>
           </div>
-          <button class="tab active" type="button" data-tab="parse" title="Dữ liệu JSON"><span class="tab-icon" aria-hidden="true">{ }</span><span class="tab-label">Dữ liệu JSON</span></button>
+          <button class="tab active" type="button" data-tab="overview" title="Tổng quan"><span class="tab-icon" aria-hidden="true">▦</span><span class="tab-label">Tổng quan</span></button>
+          <button class="tab" type="button" data-tab="parse" title="Dữ liệu JSON"><span class="tab-icon" aria-hidden="true">{ }</span><span class="tab-label">Dữ liệu JSON</span></button>
           <button class="tab tab-all" type="button" data-tab="work-all" title="Tất cả"><span class="tab-icon" aria-hidden="true">☷</span><span class="tab-label">Tất cả (<span id="count-all">0</span>)</span></button>
           <nav class="tabs" aria-label="Các màn hình">
             <button class="tab" type="button" data-tab="work-builders" title="Thợ xây"><span class="tab-icon" aria-hidden="true">⚒</span><span class="tab-label">Thợ xây (<span id="count-builders">0</span>)</span></button>
@@ -73,52 +65,165 @@
             </div>
           </div>
 
-          <div class="sidebar-section">
-            <label>Kênh gửi</label>
-            <div class="radio-row">
-              <label><input type="radio" name="channel" value="google" checked /> Google Chat</label>
-              <label><input type="radio" name="channel" value="telegram" /> Telegram</label>
-            </div>
-
-            <div id="googleConfig">
-              <label for="webhook">Google Chat webhook URL</label>
-              <input id="webhook" type="text" autocomplete="off"
-                     placeholder="https://chat.googleapis.com/v1/spaces/..." />
-            </div>
-
-            <div id="telegramConfig" hidden>
-              <label for="telegramBotToken">Telegram bot token</label>
-              <input id="telegramBotToken" type="text" autocomplete="off"
-                     placeholder="123456789:ABC..." />
-              <label for="telegramChatId">Telegram chat id</label>
-              <input id="telegramChatId" type="text" autocomplete="off"
-                     placeholder="123456789 hoặc -100..." />
-              <details class="help">
-                <summary>Hướng dẫn tạo Telegram bot và lấy token</summary>
-                <ol>
-                  <li>Mở Telegram, tìm <b>@BotFather</b>.</li>
-                  <li>Gửi lệnh <code>/newbot</code>, đặt tên bot và username kết thúc bằng <code>bot</code>.</li>
-                  <li>BotFather trả về token dạng <code>123456789:ABC...</code>, dán vào ô bot token.</li>
-                  <li>Mở bot vừa tạo, bấm Start hoặc gửi một tin nhắn bất kỳ cho bot.</li>
-                  <li>Mở <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> trên trình duyệt.</li>
-                  <li>Tìm trường <code>chat.id</code> trong JSON, dán vào ô chat id.</li>
-                </ol>
-              </details>
-            </div>
-
-            <button id="testWebhookBtn" class="ghost fullw">Gửi thử kênh nhận</button>
+          <div class="sidebar-footer">
+            <button class="tab" type="button" data-tab="channel-settings" title="Cấu hình kênh gửi">
+              <span class="tab-icon" aria-hidden="true">⚙</span>
+              <span class="tab-label">Cấu hình kênh gửi</span>
+            </button>
           </div>
         </aside>
 
         <main class="app-content">
-          <section id="tab-parse" class="tab-panel active">
+          <header class="app-topbar">
+            <button id="mobileMenuBtn" class="mobile-menu-btn" type="button" aria-label="Mở menu" aria-controls="appSidebar" aria-expanded="false">☰</button>
+            <strong class="topbar-title">CoC Alarm</strong>
+            <div id="accountMenu" class="account-menu">
+              <button id="accountMenuBtn" class="account-trigger" type="button" aria-haspopup="menu" aria-expanded="false">
+                <span id="accountInitial" class="account-avatar" aria-hidden="true">?</span>
+                <span id="who" class="account-trigger-name"></span>
+                <svg class="account-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg>
+              </button>
+              <div id="accountPopover" class="account-popover" role="menu" hidden>
+                <div class="account-popover-profile">
+                  <span id="accountPopoverInitial" class="account-avatar small" aria-hidden="true">?</span>
+                  <div><small>Tài khoản</small><strong id="accountPopoverName"></strong></div>
+                </div>
+                <button id="logoutBtn" class="account-logout" type="button" role="menuitem">Đăng xuất</button>
+              </div>
+            </div>
+          </header>
+          <section id="tab-overview" class="tab-panel active">
+            <div class="card overview-card">
+              <div class="row">
+                <h2>Tổng quan công việc</h2>
+                <span class="pill"><span id="overviewTotal">0</span> task</span>
+              </div>
+              <div id="overviewGrid" class="overview-grid"></div>
+            </div>
+            <div class="card json-guide-card">
+              <div class="json-guide-heading">
+                <div>
+                  <h2>Hướng dẫn lấy và dán JSON</h2>
+                  <p class="sub">Thêm dữ liệu làng để xem các công việc đang chạy và lên lịch nhắc.</p>
+                </div>
+                <button id="goToJsonBtn" class="primary" type="button">Dán JSON ngay</button>
+              </div>
+              <ol class="json-guide-steps">
+                <li>
+                  <span class="json-guide-number">1</span>
+                  <div><b>Lấy dữ liệu làng</b><p>Mở Clash of Clans, vào Cài đặt → Thêm cài đặt. Kéo xuống cuối trang và nhấn Sao chép để lấy dữ liệu làng.</p></div>
+                </li>
+                <li>
+                  <span class="json-guide-number">2</span>
+                  <div><b>Dán và kiểm tra</b><p>Dán vào tab Dữ liệu JSON. Nếu đang cập nhật dữ liệu, hãy bấm Xóa JSON trước rồi dán JSON mới. Bảng preview sẽ tự cập nhật để bạn kiểm tra.</p></div>
+                </li>
+                <li>
+                  <span class="json-guide-number">3</span>
+                  <div><b>Lưu và lên lịch</b><p>Bấm “Đặt gửi tất cả” để lưu JSON và tạo lịch nhắc cho các task.</p></div>
+                </li>
+              </ol>
+              <p class="json-guide-note"><b>Lưu ý:</b> Mỗi khi hoàn thành một việc và bắt đầu việc mới trong Clash of Clans, hãy lặp lại các bước trên để cập nhật lịch nhắc.</p>
+            </div>
+            <div class="overview-feature-grid">
+              <section class="card feature-card" aria-labelledby="upgradeFeatureTitle">
+                <div class="feature-card-heading">
+                  <span class="feature-card-icon" aria-hidden="true">∑</span>
+                  <div>
+                    <h2 id="upgradeFeatureTitle">Tính nâng cấp</h2>
+                    <p class="sub">Ước tính tổng tài nguyên và thời gian cần thiết để nâng hạng mục lên cấp tối đa.</p>
+                  </div>
+                </div>
+                <ul class="feature-list">
+                  <li>Đọc cấp hiện tại và cấp tối đa trực tiếp từ JSON làng.</li>
+                  <li>Tính cho công trình, tướng, lính và thần chú.</li>
+                  <li>So sánh chi phí, thời gian gốc và sau khi áp dụng Summer Jam hoặc Vé Vàng.</li>
+                  <li>Xem chi tiết từng cấp cùng thời điểm dự kiến hoàn thành.</li>
+                </ul>
+                <button id="openUpgradePlannerBtn" class="ghost feature-open-btn" type="button">Mở Tính nâng cấp</button>
+              </section>
+
+              <section class="card feature-card summer-feature-card" aria-labelledby="summerFeatureTitle">
+                <div class="feature-card-heading">
+                  <span class="feature-card-icon summer" aria-hidden="true">☀</span>
+                  <div>
+                    <h2 id="summerFeatureTitle">Tối ưu Summer Jam</h2>
+                    <p class="sub">Lập lịch nâng cấp để tận dụng tối đa thời gian giảm của từng phase Summer Jam.</p>
+                  </div>
+                </div>
+                <ul class="feature-list">
+                  <li>Tùy chỉnh số thợ xây và mức giảm từ Vé Vàng.</li>
+                  <li>Chọn ưu tiên công trình phòng thủ, lính hoặc tướng cho từng phase.</li>
+                  <li>Xem số nâng cấp kịp bắt đầu và tổng thời gian tiết kiệm.</li>
+                  <li>Theo dõi lịch bắt đầu, hoàn thành và nhiệm vụ của từng thợ.</li>
+                </ul>
+                <button id="openSummerOptimizerBtn" class="ghost feature-open-btn" type="button">Mở Tối ưu Summer Jam</button>
+              </section>
+            </div>
+          </section>
+
+          <section id="tab-parse" class="tab-panel">
             <div class="card json-card">
               <div class="field-heading">
                 <label for="json">Dán JSON làng vào đây</label>
                 <button id="jsonPreviewBtn" class="text-link" type="button">Preview JSON</button>
               </div>
               <textarea id="json" rows="14" placeholder='{"timestamp": 1783064500, "buildings": [ ... ]}'></textarea>
-              <button id="clearJsonBtn" class="ghost fullw">Xóa JSON</button>
+              <div class="json-actions">
+                <button id="pasteJsonBtn" class="primary-outline" type="button">Dán JSON</button>
+                <button id="clearJsonBtn" class="danger" type="button">Xóa JSON</button>
+              </div>
+            </div>
+          </section>
+
+          <section id="tab-channel-settings" class="tab-panel">
+            <div class="card channel-settings-card">
+              <div class="channel-settings-heading">
+                <span class="channel-settings-icon" aria-hidden="true">⚙</span>
+                <div>
+                  <h2>Cấu hình kênh gửi</h2>
+                  <p class="sub">Chọn nơi nhận thông báo khi một công việc hoàn thành, sau đó bấm Lưu cấu hình.</p>
+                </div>
+              </div>
+
+              <div class="channel-settings-body">
+                <label>Kênh gửi</label>
+                <div class="radio-row channel-options">
+                  <label><input type="radio" name="channel" value="google" checked /> Google Chat</label>
+                  <label><input type="radio" name="channel" value="telegram" /> Telegram</label>
+                </div>
+
+                <div id="googleConfig">
+                  <label for="webhook">Google Chat webhook URL</label>
+                  <input id="webhook" type="text" autocomplete="off"
+                         placeholder="https://chat.googleapis.com/v1/spaces/..." />
+                </div>
+
+                <div id="telegramConfig" hidden>
+                  <label for="telegramBotToken">Telegram bot token</label>
+                  <input id="telegramBotToken" type="text" autocomplete="off"
+                         placeholder="123456789:ABC..." />
+                  <div class="field-heading telegram-chat-heading">
+                    <label for="telegramChatId">Telegram chat id</label>
+                    <button id="getTelegramChatIdBtn" class="text-link" type="button">Tự lấy chat ID</button>
+                  </div>
+                  <input id="telegramChatId" type="text" autocomplete="off"
+                         placeholder="123456789 hoặc -100..." />
+                  <details class="help channel-help">
+                    <summary>Hướng dẫn tạo Telegram bot và lấy token</summary>
+                    <ol>
+                      <li>Mở Telegram, tìm <b>@BotFather</b>.</li>
+                      <li>Gửi lệnh <code>/newbot</code>, đặt tên bot và username kết thúc bằng <code>bot</code>.</li>
+                      <li>BotFather trả về token dạng <code>123456789:ABC...</code>, dán vào ô bot token.</li>
+                      <li>Mở bot vừa tạo, bấm Start hoặc gửi một tin nhắn bất kỳ cho bot.</li>
+                      <li>Mở <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> trên trình duyệt.</li>
+                      <li>Tìm trường <code>chat.id</code> trong JSON, dán vào ô chat id.</li>
+                    </ol>
+                  </details>
+                </div>
+
+                <button id="testWebhookBtn" class="ghost fullw">Gửi thử kênh nhận</button>
+                <button id="saveChannelBtn" class="primary" type="button">Lưu cấu hình</button>
+              </div>
             </div>
           </section>
 
@@ -259,6 +364,6 @@
 
   <script src="config.js?v=1"></script>
   <script src="parser.js?v=30"></script>
-  <script src="app.js?v=50"></script>
+  <script src="app.js?v=60"></script>
 </body>
 </html>

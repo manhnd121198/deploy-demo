@@ -19,7 +19,7 @@ let channel = "google";
 let clockBaseSec = 0;
 let clockBaseMs = Date.now();
 let lastDisplayNow = -1;
-let activeTab = "parse";
+let activeTab = "overview";
 let potionPreview = false;
 let potionPreviewStartedAt = 0;
 let summerJamEnabled = false;
@@ -27,12 +27,25 @@ let plannerBuildingId = localStorage.getItem(LS_PLANNER_BUILDING) || "";
 let jsonPreviewTimer = 0;
 
 const TASK_TABS = [
-  { category: "Thợ xây", body: "body-builders", count: "count-builders" },
-  { category: "Lab", body: "body-lab", count: "count-lab" },
-  { category: "Builder Base", body: "body-builder-base", count: "count-builder-base" },
-  { category: "Thợ phụ", body: "body-helper", count: "count-helper" },
-  { category: "Tháp đồng hồ", body: "body-clock", count: "count-clock" },
+  { category: "Thợ xây", label: "Thợ xây", icon: "⚒", tab: "work-builders", body: "body-builders", count: "count-builders" },
+  { category: "Lab", label: "Lab", icon: "⚗", tab: "work-lab", body: "body-lab", count: "count-lab" },
+  { category: "Builder Base", label: "Căn cứ thợ xây", icon: "⌂", tab: "work-builder-base", body: "body-builder-base", count: "count-builder-base" },
+  { category: "Thợ phụ", label: "Thợ phụ", icon: "♟", tab: "work-helper", body: "body-helper", count: "count-helper" },
+  { category: "Tháp đồng hồ", label: "Tháp đồng hồ", icon: "◷", tab: "work-clock", body: "body-clock", count: "count-clock" },
 ];
+const APP_TABS = new Set([
+  "overview",
+  "parse",
+  "channel-settings",
+  "summer-optimizer",
+  "work-all",
+  "work-builders",
+  "work-lab",
+  "work-builder-base",
+  "work-helper",
+  "work-clock",
+  "upgrade-planner",
+]);
 
 const nowSec = () => Math.floor(Date.now() / 1000);
 
@@ -47,9 +60,10 @@ function displayNowSec() {
   return Math.floor(clockBaseSec + elapsedSec);
 }
 
-function toast(msg) {
+function toast(msg, type = "success") {
   const t = $("toast");
   t.textContent = msg;
+  t.classList.toggle("error", type === "error");
   t.classList.add("show");
   setTimeout(() => t.classList.remove("show"), 3200);
 }
@@ -121,6 +135,7 @@ async function doAuth(path) {
 
 function logout() {
   setMobileMenuOpen(false);
+  setAccountMenuOpen(false);
   token = "";
   account = "";
   localStorage.removeItem(LS_TOKEN);
@@ -137,7 +152,10 @@ async function enterApp() {
   const acct = await apiGet("/api/account"); // xác thực token + lấy cấu hình đã lưu
   account = acct.name;
   $("who").textContent = account;
-  $("mobileWho").textContent = account;
+  $("accountPopoverName").textContent = account;
+  const initial = account.trim().charAt(0).toUpperCase() || "?";
+  $("accountInitial").textContent = initial;
+  $("accountPopoverInitial").textContent = initial;
   setChannel(acct.channel || "google");
   $("webhook").value = acct.webhookUrl || "";
   $("telegramBotToken").value = acct.telegramBotToken || "";
@@ -161,16 +179,33 @@ function setChannel(value) {
   $("telegramConfig").hidden = channel !== "telegram";
 }
 
-function setActiveTab(tab) {
-  activeTab = tab;
+function tabFromUrl() {
+  const tab = new URL(window.location.href).searchParams.get("tab") || "overview";
+  return APP_TABS.has(tab) ? tab : "overview";
+}
+
+function updateTabUrl(tab, mode) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("tab", tab);
+  window.history[mode]({ tab }, "", url);
+}
+
+function setActiveTab(tab, options = {}) {
+  const nextTab = APP_TABS.has(tab) ? tab : "overview";
+  const changed = activeTab !== nextTab;
+  activeTab = nextTab;
   for (const button of document.querySelectorAll(".tab")) {
-    button.classList.toggle("active", button.dataset.tab === tab);
+    button.classList.toggle("active", button.dataset.tab === nextTab);
   }
   for (const panel of document.querySelectorAll(".tab-panel")) {
-    panel.classList.toggle("active", panel.id === `tab-${tab}`);
+    panel.classList.toggle("active", panel.id === `tab-${nextTab}`);
   }
-  $("serverSchedule").hidden = tab !== "parse";
-  $("scheduleBtn").hidden = tab !== "parse";
+  $("serverSchedule").hidden = nextTab !== "parse";
+  $("scheduleBtn").hidden = nextTab !== "parse";
+  const historyMode = options.historyMode || "pushState";
+  if (historyMode === "replaceState" || (historyMode === "pushState" && changed)) {
+    updateTabUrl(nextTab, historyMode);
+  }
 }
 
 function setSidebarCollapsed(collapsed) {
@@ -189,6 +224,11 @@ function setMobileMenuOpen(open) {
   document.body.classList.toggle("mobile-menu-open", open);
 }
 
+function setAccountMenuOpen(open) {
+  $("accountPopover").hidden = !open;
+  $("accountMenuBtn").setAttribute("aria-expanded", String(open));
+}
+
 // ---- Bảng ----
 async function loadCatalog() {
   if (catalog) return catalog;
@@ -203,6 +243,38 @@ async function loadCatalog() {
 function finishClockHtml(finishAt) {
   const [time, date] = finishClock(finishAt).split(" ");
   return `<span class="finish-clock"><span class="finish-time">${time}</span><span class="finish-date">${date}</span></span>`;
+}
+
+function renderOverview() {
+  $("overviewTotal").textContent = parsed.length;
+  const grid = $("overviewGrid");
+  grid.innerHTML = "";
+  for (const tab of TASK_TABS) {
+    const rows = parsed.filter((task) => task.category === tab.category);
+    const nearest = rows.reduce(
+      (current, task) => (!current || task.finishAt < current.finishAt ? task : current),
+      null,
+    );
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "overview-item";
+    button.innerHTML = `
+      <span class="overview-item-header">
+        <span class="overview-item-icon" aria-hidden="true">${tab.icon}</span>
+        <span class="overview-item-title">${esc(tab.label)}</span>
+        <strong class="overview-item-count">${rows.length}</strong>
+      </span>
+      <span class="overview-nearest">
+        <span class="overview-nearest-label">Task xong gần nhất</span>
+        <span class="overview-nearest-value">${nearest ? finishClockHtml(nearest.finishAt) : '<span class="overview-empty">Chưa có task</span>'}</span>
+        <span class="overview-remaining"><span>Còn lại</span><strong>${nearest ? remaining(nearest.finishAt, displayNowSec()) : "-"}</strong></span>
+      </span>`;
+    button.onclick = () => {
+      setActiveTab(tab.tab);
+      setMobileMenuOpen(false);
+    };
+    grid.appendChild(button);
+  }
 }
 
 function renderTable(tbodyId, rows, onDelete, previewPotions = false) {
@@ -240,6 +312,7 @@ function renderParsed() {
   $("serverCount").textContent = parsed.length;
   renderTable("body-all", parsed, remove, potionPreview);
   $("count-all").textContent = parsed.length;
+  renderOverview();
   for (const tab of TASK_TABS) {
     const rows = parsed.filter((task) => task.category === tab.category);
     renderTable(tab.body, rows, remove, potionPreview);
@@ -972,13 +1045,53 @@ async function testWebhook() {
   }
 }
 
-// Lưu cấu hình gửi về server khi người dùng đổi (để lần sau tự điền).
+async function getTelegramChatId() {
+  const telegramBotToken = $("telegramBotToken").value.trim();
+  if (!telegramBotToken) {
+    toast("Hãy nhập Telegram bot token trước.", "error");
+    return;
+  }
+  if (!/^\d+:[A-Za-z0-9_-]+$/.test(telegramBotToken)) {
+    toast("Telegram bot token không hợp lệ.", "error");
+    return;
+  }
+  const button = $("getTelegramChatIdBtn");
+  button.disabled = true;
+  button.textContent = "Đang lấy...";
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${telegramBotToken}/getUpdates`);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok !== true) {
+      throw new Error(data.description || "Không thể kết nối Telegram.");
+    }
+    const updates = Array.isArray(data.result) ? [...data.result].reverse() : [];
+    const chatId = updates.map((update) =>
+      update.message?.chat?.id ??
+      update.edited_message?.chat?.id ??
+      update.channel_post?.chat?.id ??
+      update.callback_query?.message?.chat?.id
+    ).find((id) => id !== undefined && id !== null);
+    if (chatId === undefined) {
+      throw new Error("Không có chat ID. Hãy chat một tin nhắn bất kỳ với bot rồi thử lại.");
+    }
+    $("telegramChatId").value = String(chatId);
+    toast("Đã lấy chat ID. Bấm Lưu cấu hình để lưu thay đổi.");
+  } catch (e) {
+    toast(e.message || "Không lấy được chat ID.", "error");
+  } finally {
+    button.disabled = false;
+    button.textContent = "Tự lấy chat ID";
+  }
+}
+
+// Chỉ lưu cấu hình khi người dùng bấm nút Lưu cấu hình.
 async function saveChannelConfig() {
   if (!token) return;
   try {
     await apiPost("/api/account", channelPayload());
-  } catch {
-    /* im lặng: sẽ lưu lại khi đặt lịch */
+    toast("Đã lưu cấu hình kênh gửi.");
+  } catch (e) {
+    toast("Lỗi lưu cấu hình: " + e.message);
   }
 }
 
@@ -1010,6 +1123,27 @@ function clearJson() {
   renderParsed();
   renderUpgradePlannerOptions();
   toast("Đã xóa JSON.");
+}
+
+async function pasteJsonFromClipboard() {
+  if (!navigator.clipboard?.readText) {
+    toast("Trình duyệt không hỗ trợ đọc clipboard.");
+    return;
+  }
+  try {
+    const jsonText = await navigator.clipboard.readText();
+    if (!jsonText.trim()) {
+      toast("Clipboard đang trống.");
+      return;
+    }
+    clearTimeout(jsonPreviewTimer);
+    $("json").value = jsonText;
+    parseCurrentJson({ switchTab: false });
+    $("json").focus();
+    if (parsed.length > 0) toast(`Đã dán JSON và tìm thấy ${parsed.length} task.`);
+  } catch {
+    toast("Không thể đọc clipboard. Hãy cấp quyền truy cập rồi thử lại.");
+  }
 }
 
 function openJsonPreview() {
@@ -1044,9 +1178,19 @@ function renderCountdowns() {
 $("loginBtn").onclick = () => doAuth("/api/login");
 $("registerBtn").onclick = () => doAuth("/api/register");
 $("logoutBtn").onclick = logout;
+$("accountMenuBtn").onclick = () => {
+  setAccountMenuOpen($("accountPopover").hidden);
+};
 $("mobileMenuBtn").onclick = () => setMobileMenuOpen(true);
 $("mobileSidebarClose").onclick = () => setMobileMenuOpen(false);
 $("sidebarOverlay").onclick = () => setMobileMenuOpen(false);
+$("goToJsonBtn").onclick = () => {
+  setActiveTab("parse");
+  setMobileMenuOpen(false);
+  $("json").focus();
+};
+$("openUpgradePlannerBtn").onclick = () => setActiveTab("upgrade-planner");
+$("openSummerOptimizerBtn").onclick = () => setActiveTab("summer-optimizer");
 $("sidebarToggle").onclick = () => {
   const sidebar = $("sidebarToggle").closest(".sidebar");
   setSidebarCollapsed(!sidebar.classList.contains("collapsed"));
@@ -1054,9 +1198,6 @@ $("sidebarToggle").onclick = () => {
 $("scheduleBtn").onclick = scheduleCurrentJson;
 $("refreshBtn").onclick = doParse;
 $("cancelAllBtn").onclick = clearPreview;
-$("webhook").onchange = saveChannelConfig;
-$("telegramBotToken").onchange = saveChannelConfig;
-$("telegramChatId").onchange = saveChannelConfig;
 $("json").oninput = () => {
   clearTimeout(jsonPreviewTimer);
   jsonPreviewTimer = setTimeout(
@@ -1064,6 +1205,7 @@ $("json").oninput = () => {
     300,
   );
 };
+$("pasteJsonBtn").onclick = pasteJsonFromClipboard;
 $("clearJsonBtn").onclick = clearJson;
 $("jsonPreviewBtn").onclick = openJsonPreview;
 $("closeJsonPreviewBtn").onclick = closeJsonPreview;
@@ -1072,12 +1214,18 @@ $("jsonPreviewModal").onclick = (event) => {
 };
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !$("jsonPreviewModal").hidden) closeJsonPreview();
+  if (event.key === "Escape" && !$("accountPopover").hidden) {
+    setAccountMenuOpen(false);
+    $("accountMenuBtn").focus();
+  }
   if (event.key === "Escape" && $("appSidebar").classList.contains("mobile-open")) {
     setMobileMenuOpen(false);
     $("mobileMenuBtn").focus();
   }
 });
 $("testWebhookBtn").onclick = testWebhook;
+$("getTelegramChatIdBtn").onclick = getTelegramChatId;
+$("saveChannelBtn").onclick = saveChannelConfig;
 $("potionPreviewBtn").onclick = togglePotionPreview;
 $("builderPotionCount").oninput = refreshPotionPreview;
 $("researchPotionCount").oninput = refreshPotionPreview;
@@ -1101,6 +1249,7 @@ $("buildingSearch").oninput = () => {
 };
 document.addEventListener("click", (event) => {
   if (!$("buildingCombobox").contains(event.target)) closeBuildingOptions();
+  if (!$("accountMenu").contains(event.target)) setAccountMenuOpen(false);
 });
 $("goldPassSelect").onchange = renderUpgradePlanner;
 $("summerJamBtn").onclick = toggleSummerJam;
@@ -1132,7 +1281,6 @@ $("optimizerGoldPass").onchange = renderSummerOptimizer;
 for (const input of document.querySelectorAll('input[name="channel"]')) {
   input.onchange = () => {
     setChannel(input.value);
-    saveChannelConfig();
   };
 }
 for (const button of document.querySelectorAll(".tab")) {
@@ -1144,9 +1292,14 @@ for (const button of document.querySelectorAll(".tab")) {
 window.matchMedia("(min-width: 901px)").addEventListener("change", (event) => {
   if (event.matches) setMobileMenuOpen(false);
 });
+window.addEventListener("popstate", () => {
+  setActiveTab(tabFromUrl(), { historyMode: "none" });
+  setMobileMenuOpen(false);
+});
 resetClock();
 setSidebarCollapsed(localStorage.getItem(LS_SIDEBAR_COLLAPSED) === "true");
-setActiveTab(activeTab);
+activeTab = tabFromUrl();
+setActiveTab(activeTab, { historyMode: "replaceState" });
 setInterval(renderCountdowns, 100);
 
 // Tự vào app nếu còn token hợp lệ.
