@@ -65,6 +65,22 @@ class VillageJsonParserTest {
     }
 
     @Test
+    fun `nang cap tuong chiem tho xay dung loai lang`() {
+        val json = """
+            {
+              "timestamp": $timestamp,
+              "heroes": [{"data": 28000000, "lvl": 79, "timer": 3600}],
+              "heroes2": [{"data": 28000001, "lvl": 34, "timer": 7200}]
+            }
+        """.trimIndent()
+
+        val tasks = VillageJsonParser.parse(json, timestamp)
+
+        assertEquals(1, tasks.count { it.category == "Thợ xây" })
+        assertEquals(1, tasks.count { it.category == "Builder Base" })
+    }
+
+    @Test
     fun `hien ten va cap nang cap khi catalog co data id`() {
         val names = mapOf(
             1000009L to "Tháp Cung",

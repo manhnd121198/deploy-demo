@@ -60,7 +60,13 @@ object VillageJsonParser {
         forEachTimer(root, "buildings") { timer, dataId, level ->
             add("Thợ xây", timer, dataId, level)
         }
+        forEachTimer(root, "heroes") { timer, dataId, level ->
+            add("Thợ xây", timer, dataId, level)
+        }
         forEachTimer(root, "buildings2") { timer, dataId, level ->
+            add("Builder Base", timer, dataId, level)
+        }
+        forEachTimer(root, "heroes2") { timer, dataId, level ->
             add("Builder Base", timer, dataId, level)
         }
         listOf("units", "units2", "spells", "siege_machines").forEach { key ->

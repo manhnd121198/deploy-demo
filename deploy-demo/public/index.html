@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CoC Builder Alarm</title>
-  <link rel="stylesheet" href="styles.css?v=24" />
+  <link rel="stylesheet" href="styles.css?v=41" />
 </head>
 <body>
   <div class="wrap">
@@ -150,6 +150,18 @@
             <span id="plannerTownHall" class="pill">Nhà Chính ?</span>
           </div>
           <div class="planner-controls">
+            <label for="plannerTypeSelect">Loại nâng cấp</label>
+            <select id="plannerTypeSelect">
+              <option value="building">Công trình</option>
+              <option value="hero">Tướng</option>
+              <option value="troop">Lính</option>
+              <option value="spell">Thần chú</option>
+            </select>
+            <label id="plannerResourceLabel" for="plannerResourceSelect">Tài nguyên công trình</label>
+            <select id="plannerResourceSelect">
+              <option value="Gold">Vàng</option>
+              <option value="Elixir">Tiên dược</option>
+            </select>
             <label for="buildingSearch">Hạng mục nâng cấp</label>
             <div id="buildingCombobox" class="planner-combobox">
               <input id="buildingSearch" type="search" placeholder="Tìm công trình hoặc tướng..." autocomplete="off" role="combobox" aria-expanded="false" aria-controls="buildingOptions" />
@@ -220,7 +232,7 @@
   <div id="toast"></div>
 
   <script src="config.js?v=1"></script>
-  <script src="parser.js?v=27"></script>
-  <script src="app.js?v=35"></script>
+  <script src="parser.js?v=28"></script>
+  <script src="app.js?v=42"></script>
 </body>
 </html>

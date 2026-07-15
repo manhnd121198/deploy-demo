@@ -53,7 +53,9 @@ function parseVillage(jsonText, nowSec, catalog) {
 
   // Mảng có field "timer".
   withField("buildings", "timer", "Thợ xây", true);
+  withField("heroes", "timer", "Thợ xây", true);
   withField("buildings2", "timer", "Builder Base", true);
+  withField("heroes2", "timer", "Builder Base", true);
   withField("units", "timer", "Lab", true);
   withField("units2", "timer", "Lab", true);
   withField("spells", "timer", "Lab", true);

@@ -5,6 +5,8 @@ const $ = (id) => document.getElementById(id);
 const LS_TOKEN = "coc_token";
 const LS_PLANNER_BUILDING = "coc_planner_building";
 const LS_OPTIMIZER_BUILDERS = "coc_optimizer_builders";
+const LS_PLANNER_TYPE = "coc_planner_type";
+const LS_PLANNER_RESOURCE = "coc_planner_resource";
 const API_BASE = String(window.COC_API_BASE || "").replace(/\/$/, "");
 
 let token = localStorage.getItem(LS_TOKEN) || "";
@@ -494,29 +496,47 @@ function summerJamPhase(date = new Date()) {
   return summerJamPhases().find((phase) => time >= phase.start && time < phase.end) || null;
 }
 
-function buildSummerOptimizerPlan(builderCount, goldPassPercent) {
+function buildSummerOptimizerPlan(builderCount, goldPassPercent, phasePriorities = {}) {
   const ignoredCollectors = new Set(["1000002", "1000004", "1000023"]);
+  const troopBuildings = new Set(["Laboratory", "Army Camp", "Barracks", "Dark Barracks", "Workshop", "Clan Castle"]);
+  const heroBuildings = new Set(["Hero Hall", "Blacksmith"]);
   const now = nowSec();
   const phases = summerJamPhases().filter((phase) => phase.end > now);
   if (phases.length === 0) return { phases: [], eligible: 0, rows: [], saved: 0 };
   const townHall = Number(plannerItems[0]?.townHallLevel || 0);
   const summerPercent = townHall > 0 && townHall <= 16 ? 40 : 25;
   const factor = (1 - summerPercent / 100) * (1 - goldPassPercent / 100);
-  const active = plannerItems
+  const activeBuilders = plannerItems
     .filter((item) => ["Công trình làng chính", "Anh hùng"].includes(item.source) && item.finishAt > now)
     .map((item) => item.finishAt)
     .sort((a, b) => a - b);
-  const workerTotal = Math.max(builderCount, active.length);
-  const workers = Array.from({ length: workerTotal }, (_, index) => ({ id: index + 1, at: active[index] || now }));
+  const activeLab = plannerItems
+    .filter((item) => ["Quân lính", "Máy công thành", "Thần chú"].includes(item.source) && item.finishAt > now)
+    .map((item) => item.finishAt)
+    .sort((a, b) => a - b);
+  const workerTotal = Math.max(builderCount, activeBuilders.length);
+  const builderWorkers = Array.from({ length: workerTotal }, (_, index) => ({ label: `Thợ ${index + 1}`, at: activeBuilders[index] || now }));
+  const labWorkers = [
+    { label: "Lab", at: activeLab[0] || now },
+    { label: "Yêu tinh", at: activeLab[1] || now },
+  ];
   const chains = [];
   for (const item of plannerItems) {
-    if (!["Công trình làng chính", "Anh hùng"].includes(item.source) || !item.matched) continue;
+    const builderQueue = ["Công trình làng chính", "Anh hùng"].includes(item.source);
+    const labQueue = ["Quân lính", "Máy công thành", "Thần chú"].includes(item.source);
+    if ((!builderQueue && !labQueue) || !item.matched) continue;
     if (ignoredCollectors.has(item.dataId)) continue;
+    const catalogItem = catalog?.items?.[item.dataId] || {};
     for (let index = 0; index < Number(item.count || 1); index += 1) {
       const levels = (item.upgradeLevels || []).slice(item.timer > 0 && index === 0 ? 1 : 0);
       if (levels.length === 0) continue;
       chains.push({
         name: `${item.displayName || item.name}${Number(item.count || 1) > 1 ? ` #${index + 1}` : ""}`,
+        queue: builderQueue ? "builder" : "lab",
+        source: item.source,
+        kind: catalogItem.kind || "",
+        troopBuilding: troopBuildings.has(item.name),
+        heroBuilding: heroBuildings.has(item.name),
         levels,
         next: 0,
         at: item.timer > 0 && index === 0 ? item.finishAt : now,
@@ -526,13 +546,28 @@ function buildSummerOptimizerPlan(builderCount, goldPassPercent) {
   const eligibleResources = new Set(phases.flatMap((phase) => phase.resource === "all" ? ["Gold", "Elixir", "Dark Elixir"] : [phase.resource]));
   const eligible = chains.reduce((sum, chain) =>
     sum + chain.levels.filter((level) => eligibleResources.has(level.resource)).length, 0);
-  const rows = [];
-  let saved = 0;
-  while (true) {
-    workers.sort((a, b) => a.at - b.at || a.id - b.id);
+  function priorityWeight(chain, phase) {
+    const priority = phasePriorities[phase.label] || "normal";
+    if (priority === "defense" && chain.kind === "defense") return 3;
+    if (priority === "troop") {
+      if (["Quân lính", "Máy công thành"].includes(chain.source)) return 3;
+      if (chain.troopBuilding) return 2;
+    }
+    if (priority === "hero") {
+      if (chain.source === "Anh hùng") return 3;
+      if (chain.heroBuilding) return 2;
+    }
+    return 1;
+  }
+  function scheduleQueue(queue, workers) {
+    const queueChains = chains.filter((chain) => chain.queue === queue);
+    const rows = [];
+    let saved = 0;
+    while (true) {
+    workers.sort((a, b) => a.at - b.at || a.label.localeCompare(b.label));
     const worker = workers[0];
     if (!worker || worker.at >= phases[phases.length - 1].end) break;
-    const unfinished = chains.filter((chain) => chain.next < chain.levels.length);
+    const unfinished = queueChains.filter((chain) => chain.next < chain.levels.length);
     if (unfinished.length === 0) break;
     const candidates = unfinished.map((chain) => {
       const level = chain.levels[chain.next];
@@ -544,12 +579,14 @@ function buildSummerOptimizerPlan(builderCount, goldPassPercent) {
           : entry.resource === level.resource;
         return startAt < entry.end && resourceMatches;
       });
-      return phase ? { chain, level, phase, startAt: Math.max(availableAt, phase.start) } : null;
+        return phase ? { chain, level, phase, startAt: Math.max(availableAt, phase.start), weight: priorityWeight(chain, phase) } : null;
     }).filter(Boolean);
     if (candidates.length === 0) break;
-    candidates.sort((a, b) => a.startAt - b.startAt || Number(a.level.timeSec || 0) - Number(b.level.timeSec || 0));
-    const earliestStart = candidates[0].startAt;
-    const earliest = candidates.filter((candidate) => candidate.startAt === earliestStart);
+      const bestWeight = Math.max(...candidates.map((candidate) => candidate.weight));
+      const weighted = candidates.filter((candidate) => candidate.weight === bestWeight);
+    weighted.sort((a, b) => a.startAt - b.startAt || Number(a.level.timeSec || 0) - Number(b.level.timeSec || 0));
+    const earliestStart = weighted[0].startAt;
+    const earliest = weighted.filter((candidate) => candidate.startAt === earliestStart);
     const remainingWindow = earliest[0].phase.end - earliestStart;
     const finalCandidates = earliest.filter((candidate) =>
       Math.ceil(Number(candidate.level.timeSec || 0) * factor) >= remainingWindow,
@@ -564,19 +601,29 @@ function buildSummerOptimizerPlan(builderCount, goldPassPercent) {
     const duration = Math.ceil(baseTime * factor);
     const finishAt = startAt + duration;
     const saving = baseTime - duration;
-    rows.push({ worker: worker.id, startAt, finishAt, duration, saving, phase: phase.label, name: chain.name, from: Number(level.level) - 1, to: Number(level.level) });
+    rows.push({ worker: worker.label, queue, startAt, finishAt, duration, saving, phase: phase.label, name: chain.name, from: Number(level.level) - 1, to: Number(level.level) });
     saved += saving;
     worker.at = finishAt;
     chain.at = finishAt;
     chain.next += 1;
   }
-  rows.sort((a, b) => a.startAt - b.startAt || a.worker - b.worker);
+    return { rows, saved };
+  }
+  const builderSchedule = scheduleQueue("builder", builderWorkers);
+  const labSchedule = scheduleQueue("lab", labWorkers);
+  const rows = [...builderSchedule.rows, ...labSchedule.rows];
+  const saved = builderSchedule.saved + labSchedule.saved;
+  rows.sort((a, b) => a.startAt - b.startAt || a.worker.localeCompare(b.worker));
   return { phases, eligible, rows, saved, summerPercent };
 }
 
 function renderSummerOptimizer() {
   const builders = Math.max(1, Math.min(7, Number($("optimizerBuilderCount").value || 5)));
-  const plan = buildSummerOptimizerPlan(builders, Number($("optimizerGoldPass").value || 0));
+  const phasePriorities = Object.fromEntries(summerJamPhases().map((phase) => [
+    phase.label,
+    localStorage.getItem(`coc_optimizer_priority_${phase.resource}`) || "normal",
+  ]));
+  const plan = buildSummerOptimizerPlan(builders, Number($("optimizerGoldPass").value || 0), phasePriorities);
   const phaseCards = $("optimizerPhaseCards");
   phaseCards.innerHTML = "";
   $("optimizerEligible").textContent = plan.eligible.toLocaleString();
@@ -587,27 +634,41 @@ function renderSummerOptimizer() {
   $("optimizerPhase").textContent = currentPhase ? `Hiện tại: ${currentPhase.label}` : "Chờ phase tiếp theo";
   $("optimizerDeadline").textContent = finalPhase ? finishClock(finalPhase.end) : "-";
   $("optimizerInfo").textContent = plan.phases.length
-    ? `Không giới hạn tài nguyên. Lịch tính cả ${plan.phases.map((phase) => phase.label).join(", ")} và áp dụng mức giảm Summer Jam ${plan.summerPercent}% tại lúc bắt đầu nâng.`
+    ? `Không giới hạn tài nguyên; mỗi phase có ưu tiên riêng. Nghiên cứu có 2 slot trong tháng 7: Laboratory và Yêu tinh 1 Ngọc. Áp dụng mức giảm Summer Jam ${plan.summerPercent}% tại lúc bắt đầu nâng.`
     : "Hiện không có phase Summer Jam đang hoạt động.";
   for (const phase of plan.phases) {
     const phaseRows = plan.rows.filter((row) => row.phase === phase.label);
     const card = document.createElement("div");
     card.className = "optimizer-phase-card";
     const body = phaseRows.length
-      ? phaseRows.map((row) => `<tr><td>Thợ ${row.worker}</td><td>${finishClock(row.startAt)}</td><td>${esc(row.name)}</td><td>${row.from} → ${row.to}</td><td>${formatDuration(row.duration)}</td><td>${finishClock(row.finishAt)}</td><td>${formatDuration(row.saving)}</td></tr>`).join("")
+      ? phaseRows.map((row) => `<tr><td>${esc(row.worker)}</td><td>${finishClock(row.startAt)}</td><td>${esc(row.name)}</td><td>${row.from} → ${row.to}</td><td>${formatDuration(row.duration)}</td><td>${finishClock(row.finishAt)}</td><td>${formatDuration(row.saving)}</td></tr>`).join("")
       : '<tr><td colspan="7" class="muted">Không có nâng cấp được xếp trong phase này.</td></tr>';
     card.innerHTML = `
       <div class="row">
         <h3>Phase ${esc(phase.label)}</h3>
+        <label>Ưu tiên
+          <select class="phase-priority" data-resource="${escAttr(phase.resource)}">
+            <option value="normal">Bình thường</option>
+            <option value="defense">Công trình phòng thủ</option>
+            <option value="troop">Lính</option>
+            <option value="hero">Tướng</option>
+          </select>
+        </label>
         <span class="pill">${phaseRows.length} nâng cấp</span>
       </div>
       <p class="sub planner-note">${finishClock(phase.start)} → ${finishClock(phase.end)}</p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Thợ</th><th>Bắt đầu</th><th>Hạng mục</th><th>Nâng cấp</th><th>Thời gian sau giảm</th><th>Xong lúc</th><th>Tiết kiệm</th></tr></thead>
+          <thead><tr><th>Hàng đợi</th><th>Bắt đầu</th><th>Hạng mục</th><th>Nâng cấp</th><th>Thời gian sau giảm</th><th>Xong lúc</th><th>Tiết kiệm</th></tr></thead>
           <tbody>${body}</tbody>
         </table>
       </div>`;
+    const prioritySelect = card.querySelector(".phase-priority");
+    prioritySelect.value = phasePriorities[phase.label] || "normal";
+    prioritySelect.onchange = () => {
+      localStorage.setItem(`coc_optimizer_priority_${phase.resource}`, prioritySelect.value);
+      renderSummerOptimizer();
+    };
     phaseCards.appendChild(card);
   }
   $("optimizerEmpty").hidden = plan.rows.length > 0;
@@ -617,9 +678,22 @@ function renderSummerOptimizer() {
 }
 
 function plannerGroups() {
+  const type = $("plannerTypeSelect").value;
+  const resource = $("plannerResourceSelect").value;
+  const sources = {
+    building: ["Công trình làng chính"],
+    hero: ["Anh hùng"],
+    troop: ["Quân lính", "Máy công thành"],
+    spell: ["Thần chú"],
+  }[type] || [];
   const groups = new Map();
   for (const item of plannerItems) {
-    if (!["Công trình làng chính", "Anh hùng"].includes(item.source) || !item.matched) continue;
+    if (!sources.includes(item.source) || !item.matched) continue;
+    if (type === "building") {
+      const levels = catalog?.items?.[item.dataId]?.levels || [];
+      const nextLevel = item.upgradeLevels[0] || levels.find((level) => Number(level.level) > item.currentLevel) || levels.at(-1);
+      if (nextLevel?.resource !== resource) continue;
+    }
     const group = groups.get(item.dataId) || [];
     group.push(item);
     groups.set(item.dataId, group);
@@ -642,7 +716,7 @@ function renderUpgradePlannerOptions(queryText = null) {
     option.type = "button";
     option.className = `planner-option${dataId === plannerBuildingId ? " selected" : ""}`;
     option.setAttribute("role", "option");
-    const category = items[0].source === "Anh hùng" ? "Tướng" : "Công trình";
+    const category = plannerCategoryLabel(items[0]);
     option.textContent = `${items[0].displayName || items[0].name} (${category}, ${count})`;
     option.onclick = () => {
       plannerBuildingId = dataId;
@@ -665,10 +739,17 @@ function renderUpgradePlannerOptions(queryText = null) {
     }
     const selectedItems = groups.get(plannerBuildingId);
     const count = selectedItems.reduce((sum, item) => sum + Number(item.count || 1), 0);
-    const category = selectedItems[0].source === "Anh hùng" ? "Tướng" : "Công trình";
+    const category = plannerCategoryLabel(selectedItems[0]);
     $("buildingSearch").value = `${selectedItems[0].displayName || selectedItems[0].name} (${category}, ${count})`;
   }
   renderUpgradePlanner();
+}
+
+function plannerCategoryLabel(item) {
+  if (item.source === "Anh hùng") return "Tướng";
+  if (["Quân lính", "Máy công thành"].includes(item.source)) return "Lính";
+  if (item.source === "Thần chú") return "Thần chú";
+  return "Công trình";
 }
 
 function openBuildingOptions() {
@@ -685,10 +766,18 @@ function closeBuildingOptions() {
 function calculateUpgradePlan(items, goldPassPercent, summerJam) {
   const result = { count: 0, levels: 0, baseTime: 0, discountedTime: 0, resources: {}, details: [] };
   const goldFactor = 1 - goldPassPercent / 100;
+  const activeLabFinishTimes = plannerItems
+    .filter((item) => ["Quân lính", "Máy công thành", "Thần chú"].includes(item.source))
+    .map((item) => Number(item.finishAt || 0))
+    .filter((finishAt) => finishAt > nowSec())
+    .sort((a, b) => a - b);
+  const labAvailableAt = activeLabFinishTimes.length < 2 ? nowSec() : activeLabFinishTimes[0];
   for (const item of items) {
     const itemCount = Number(item.count || 1);
     result.count += itemCount;
-    const finishTimes = Array.from({ length: itemCount }, () => nowSec());
+    const isLabItem = ["Quân lính", "Máy công thành", "Thần chú"].includes(item.source);
+    const startsAt = isLabItem && item.timer <= 0 ? labAvailableAt : nowSec();
+    const finishTimes = Array.from({ length: itemCount }, () => startsAt);
     for (const [levelIndex, level] of (item.upgradeLevels || []).entries()) {
       const count = Number(level.count || 1);
       const runningCount = levelIndex === 0 && item.timer > 0 ? 1 : 0;
@@ -986,6 +1075,25 @@ document.addEventListener("click", (event) => {
 });
 $("goldPassSelect").onchange = renderUpgradePlanner;
 $("summerJamBtn").onclick = toggleSummerJam;
+$("plannerTypeSelect").value = localStorage.getItem(LS_PLANNER_TYPE) || "building";
+$("plannerResourceSelect").value = localStorage.getItem(LS_PLANNER_RESOURCE) || "Gold";
+function updatePlannerFilters() {
+  const building = $("plannerTypeSelect").value === "building";
+  $("plannerResourceLabel").hidden = !building;
+  $("plannerResourceSelect").hidden = !building;
+  plannerBuildingId = "";
+  $("buildingSearch").value = "";
+  renderUpgradePlannerOptions();
+}
+$("plannerTypeSelect").onchange = () => {
+  localStorage.setItem(LS_PLANNER_TYPE, $("plannerTypeSelect").value);
+  updatePlannerFilters();
+};
+$("plannerResourceSelect").onchange = () => {
+  localStorage.setItem(LS_PLANNER_RESOURCE, $("plannerResourceSelect").value);
+  updatePlannerFilters();
+};
+updatePlannerFilters();
 $("optimizerBuilderCount").value = localStorage.getItem(LS_OPTIMIZER_BUILDERS) || "5";
 $("optimizerBuilderCount").oninput = () => {
   localStorage.setItem(LS_OPTIMIZER_BUILDERS, $("optimizerBuilderCount").value);

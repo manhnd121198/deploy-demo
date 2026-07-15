@@ -41,7 +41,9 @@ function parseVillage(jsonText, nowSec) {
 
   // Mảng có field "timer".
   withField("buildings", "timer", "Thợ xây");
+  withField("heroes", "timer", "Thợ xây");
   withField("buildings2", "timer", "Builder Base");
+  withField("heroes2", "timer", "Builder Base");
   withField("units", "timer", "Lab");
   withField("units2", "timer", "Lab");
   // Thợ phụ: field "helper_cooldown".
