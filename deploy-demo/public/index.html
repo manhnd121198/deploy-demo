@@ -4,14 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CoC Builder Alarm</title>
-  <link rel="stylesheet" href="styles.css?v=41" />
+  <link rel="stylesheet" href="styles.css?v=53" />
 </head>
 <body>
   <div class="wrap">
-    <h1>CoC Builder Alarm</h1>
-
     <!-- Màn đăng nhập -->
     <div id="loginView">
+      <h1>CoC Builder Alarm</h1>
       <p class="sub">Đăng nhập để quản lý lịch gửi tin nhắn của bạn (mỗi tài khoản có data riêng).</p>
       <label for="acctName">Tên tài khoản</label>
       <input id="acctName" type="text" autocomplete="username" placeholder="vd: lang-chinh" />
@@ -23,36 +22,38 @@
 
     <!-- Màn chính (sau đăng nhập) -->
     <div id="appView" hidden>
-      <div class="row">
-        <p class="sub nomargin">Tài khoản: <b id="who"></b></p>
-        <button id="logoutBtn" class="ghost">Đăng xuất</button>
-      </div>
-      <nav class="tabs" aria-label="Các màn hình">
-        <button class="tab active" type="button" data-tab="parse">Dữ liệu JSON</button>
-        <button class="tab" type="button" data-tab="work-builders">Thợ xây (<span id="count-builders">0</span>)</button>
-        <button class="tab" type="button" data-tab="work-lab">Lab (<span id="count-lab">0</span>)</button>
-        <button class="tab" type="button" data-tab="work-builder-base">Căn cứ thợ xây (<span id="count-builder-base">0</span>)</button>
-        <button class="tab" type="button" data-tab="work-helper">Thợ phụ (<span id="count-helper">0</span>)</button>
-        <button class="tab" type="button" data-tab="work-clock">Tháp đồng hồ (<span id="count-clock">0</span>)</button>
-        <button class="tab" type="button" data-tab="upgrade-planner">Tính nâng cấp</button>
-        <button class="tab" type="button" data-tab="summer-optimizer">Tối ưu Summer Jam</button>
-      </nav>
-
-      <section id="tab-parse" class="tab-panel active">
-        <div class="grid two">
-          <div class="card">
-            <label for="json">Dán JSON làng vào đây</label>
-            <textarea id="json" rows="14" placeholder='{"timestamp": 1783064500, "buildings": [ ... ]}'></textarea>
-            <button id="parseBtn" class="primary">Phân tích &amp; xem thời gian</button>
-            <button id="clearJsonBtn" class="ghost fullw">Xóa JSON</button>
+      <header class="mobile-app-header">
+        <button id="mobileMenuBtn" class="mobile-menu-btn" type="button" aria-label="Mở menu" aria-controls="appSidebar" aria-expanded="false">☰</button>
+        <div class="mobile-app-identity">
+          <strong>CoC Builder Alarm</strong>
+          <span>Tài khoản: <b id="mobileWho"></b></span>
+        </div>
+      </header>
+      <div id="sidebarOverlay" class="sidebar-overlay" hidden></div>
+      <div class="app-shell">
+        <aside id="appSidebar" class="sidebar" aria-label="Điều hướng và thiết lập">
+          <div class="sidebar-header">
+            <div class="sidebar-identity">
+              <h1 class="sidebar-brand">CoC Builder Alarm</h1>
+              <p class="sidebar-account">Tài khoản: <b id="who"></b></p>
+              <button id="logoutBtn" class="sidebar-logout" type="button">Đăng xuất</button>
+            </div>
+            <button id="mobileSidebarClose" class="mobile-sidebar-close" type="button" aria-label="Đóng menu">✕</button>
+            <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Thu gọn menu" aria-expanded="true">‹</button>
           </div>
+          <button class="tab active" type="button" data-tab="parse" title="Dữ liệu JSON"><span class="tab-icon" aria-hidden="true">{ }</span><span class="tab-label">Dữ liệu JSON</span></button>
+          <button class="tab tab-all" type="button" data-tab="work-all" title="Tất cả"><span class="tab-icon" aria-hidden="true">☷</span><span class="tab-label">Tất cả (<span id="count-all">0</span>)</span></button>
+          <nav class="tabs" aria-label="Các màn hình">
+            <button class="tab" type="button" data-tab="work-builders" title="Thợ xây"><span class="tab-icon" aria-hidden="true">⚒</span><span class="tab-label">Thợ xây (<span id="count-builders">0</span>)</span></button>
+            <button class="tab" type="button" data-tab="work-lab" title="Lab"><span class="tab-icon" aria-hidden="true">⚗</span><span class="tab-label">Lab (<span id="count-lab">0</span>)</span></button>
+            <button class="tab" type="button" data-tab="work-builder-base" title="Căn cứ thợ xây"><span class="tab-icon" aria-hidden="true">⌂</span><span class="tab-label">Căn cứ thợ xây (<span id="count-builder-base">0</span>)</span></button>
+            <button class="tab" type="button" data-tab="work-helper" title="Thợ phụ"><span class="tab-icon" aria-hidden="true">♟</span><span class="tab-label">Thợ phụ (<span id="count-helper">0</span>)</span></button>
+            <button class="tab" type="button" data-tab="work-clock" title="Tháp đồng hồ"><span class="tab-icon" aria-hidden="true">◷</span><span class="tab-label">Tháp đồng hồ (<span id="count-clock">0</span>)</span></button>
+            <button class="tab" type="button" data-tab="upgrade-planner" title="Tính nâng cấp"><span class="tab-icon" aria-hidden="true">∑</span><span class="tab-label">Tính nâng cấp</span></button>
+            <button class="tab" type="button" data-tab="summer-optimizer" title="Tối ưu Summer Jam"><span class="tab-icon" aria-hidden="true">☀</span><span class="tab-label">Tối ưu Summer Jam</span></button>
+          </nav>
 
-          <div class="card">
-            <label class="switch-row" for="speed10x">
-              <span>Tăng tốc x10</span>
-              <input id="speed10x" type="checkbox" role="switch" />
-            </label>
-
+          <div class="sidebar-section">
             <div class="potion-preview">
               <div class="row">
                 <b>Preview dùng thuốc</b>
@@ -70,7 +71,9 @@
               </div>
               <p class="sub potion-note">Mỗi lọ kéo dài hiệu lực thêm 1 giờ. Preview chỉ xem thử; nút Sử dụng sẽ thay lịch server.</p>
             </div>
+          </div>
 
+          <div class="sidebar-section">
             <label>Kênh gửi</label>
             <div class="radio-row">
               <label><input type="radio" name="channel" value="google" checked /> Google Chat</label>
@@ -105,8 +108,19 @@
 
             <button id="testWebhookBtn" class="ghost fullw">Gửi thử kênh nhận</button>
           </div>
-        </div>
-      </section>
+        </aside>
+
+        <main class="app-content">
+          <section id="tab-parse" class="tab-panel active">
+            <div class="card json-card">
+              <div class="field-heading">
+                <label for="json">Dán JSON làng vào đây</label>
+                <button id="jsonPreviewBtn" class="text-link" type="button">Preview JSON</button>
+              </div>
+              <textarea id="json" rows="14" placeholder='{"timestamp": 1783064500, "buildings": [ ... ]}'></textarea>
+              <button id="clearJsonBtn" class="ghost fullw">Xóa JSON</button>
+            </div>
+          </section>
 
       <section id="tab-summer-optimizer" class="tab-panel">
         <div class="card planner-card">
@@ -137,6 +151,7 @@
         </div>
       </section>
 
+      <section id="tab-work-all" class="tab-panel task-panel"><div class="card"><div class="table-wrap"><table><thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead><tbody id="body-all"></tbody></table></div></div></section>
       <section id="tab-work-builders" class="tab-panel task-panel"><div class="card"><div class="table-wrap"><table><thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead><tbody id="body-builders"></tbody></table></div></div></section>
       <section id="tab-work-lab" class="tab-panel task-panel"><div class="card"><div class="table-wrap"><table><thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead><tbody id="body-lab"></tbody></table></div></div></section>
       <section id="tab-work-builder-base" class="tab-panel task-panel"><div class="card"><div class="table-wrap"><table><thead><tr><th>Việc</th><th>Còn lại</th><th>Xong</th><th></th></tr></thead><tbody id="body-builder-base"></tbody></table></div></div></section>
@@ -207,15 +222,14 @@
       </section>
 
       <div id="taskActions" hidden>
-        <button id="reloadBtn" class="ghost fullw">Tải lại JSON</button>
         <button id="scheduleBtn" class="primary">Đặt gửi tất cả (<span id="parsedCount">0</span>)</button>
       </div>
 
       <div id="serverSchedule" class="schedule-grid">
         <div class="card">
           <div class="row">
-            <h2>Đã lên lịch trên server (<span id="serverCount">0</span>)</h2>
-            <button id="refreshBtn" class="ghost">Làm mới</button>
+            <h2>Preview tính từ JSON (<span id="serverCount">0</span>)</h2>
+            <button id="refreshBtn" class="ghost">Tính lại</button>
           </div>
           <div class="table-wrap">
             <table>
@@ -223,9 +237,21 @@
               <tbody id="serverBody"></tbody>
             </table>
           </div>
-          <button id="cancelAllBtn" class="danger">Huỷ tất cả</button>
+          <button id="cancelAllBtn" class="danger">Xóa preview</button>
         </div>
       </div>
+        </main>
+      </div>
+    </div>
+  </div>
+
+  <div id="jsonPreviewModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="jsonPreviewTitle" hidden>
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="jsonPreviewTitle">Preview JSON</h2>
+        <button id="closeJsonPreviewBtn" class="icon modal-close" type="button" aria-label="Đóng preview">✕</button>
+      </div>
+      <pre id="jsonPreviewContent" class="json-preview-content"></pre>
     </div>
   </div>
 
@@ -233,6 +259,6 @@
 
   <script src="config.js?v=1"></script>
   <script src="parser.js?v=30"></script>
-  <script src="app.js?v=42"></script>
+  <script src="app.js?v=49"></script>
 </body>
 </html>

@@ -7,16 +7,15 @@ const LS_PLANNER_BUILDING = "coc_planner_building";
 const LS_OPTIMIZER_BUILDERS = "coc_optimizer_builders";
 const LS_PLANNER_TYPE = "coc_planner_type";
 const LS_PLANNER_RESOURCE = "coc_planner_resource";
+const LS_SIDEBAR_COLLAPSED = "coc_sidebar_collapsed";
 const API_BASE = String(window.COC_API_BASE || "").replace(/\/$/, "");
 
 let token = localStorage.getItem(LS_TOKEN) || "";
 let account = "";
 let parsed = []; // việc parse ở client, chưa gửi server
 let plannerItems = [];
-let serverTasks = []; // việc đã lên lịch trên server (giữ ở client để hiện ngay)
 let catalog = null;
 let channel = "google";
-let speed10x = false;
 let clockBaseSec = 0;
 let clockBaseMs = Date.now();
 let lastDisplayNow = -1;
@@ -25,6 +24,7 @@ let potionPreview = false;
 let potionPreviewStartedAt = 0;
 let summerJamEnabled = false;
 let plannerBuildingId = localStorage.getItem(LS_PLANNER_BUILDING) || "";
+let jsonPreviewTimer = 0;
 
 const TASK_TABS = [
   { category: "Thợ xây", body: "body-builders", count: "count-builders" },
@@ -44,7 +44,7 @@ function resetClock() {
 
 function displayNowSec() {
   const elapsedSec = (Date.now() - clockBaseMs) / 1000;
-  return Math.floor(clockBaseSec + elapsedSec * (speed10x ? 10 : 1));
+  return Math.floor(clockBaseSec + elapsedSec);
 }
 
 function toast(msg) {
@@ -120,11 +120,10 @@ async function doAuth(path) {
 }
 
 function logout() {
+  setMobileMenuOpen(false);
   token = "";
   account = "";
   localStorage.removeItem(LS_TOKEN);
-  speed10x = false;
-  $("speed10x").checked = false;
   resetClock();
   $("appView").hidden = true;
   $("loginView").hidden = false;
@@ -138,6 +137,7 @@ async function enterApp() {
   const acct = await apiGet("/api/account"); // xác thực token + lấy cấu hình đã lưu
   account = acct.name;
   $("who").textContent = account;
+  $("mobileWho").textContent = account;
   setChannel(acct.channel || "google");
   $("webhook").value = acct.webhookUrl || "";
   $("telegramBotToken").value = acct.telegramBotToken || "";
@@ -145,12 +145,11 @@ async function enterApp() {
   $("json").value = acct.json || "";
   await loadCatalog();
   if ($("json").value.trim()) {
-    parseCurrentJson({ save: false, switchTab: false, quiet: true });
+    parseCurrentJson({ switchTab: false, quiet: true });
   } else {
     renderUpgradePlannerOptions();
     renderSummerOptimizer();
   }
-  await loadServer();
 }
 
 function setChannel(value) {
@@ -172,6 +171,22 @@ function setActiveTab(tab) {
   }
   $("serverSchedule").hidden = tab !== "parse";
   $("scheduleBtn").hidden = tab !== "parse";
+}
+
+function setSidebarCollapsed(collapsed) {
+  $("sidebarToggle").closest(".sidebar").classList.toggle("collapsed", collapsed);
+  $("sidebarToggle").closest(".app-shell").classList.toggle("sidebar-collapsed", collapsed);
+  $("sidebarToggle").setAttribute("aria-expanded", String(!collapsed));
+  $("sidebarToggle").setAttribute("aria-label", collapsed ? "Mở rộng menu" : "Thu gọn menu");
+  localStorage.setItem(LS_SIDEBAR_COLLAPSED, String(collapsed));
+}
+
+function setMobileMenuOpen(open) {
+  $("appSidebar").classList.toggle("mobile-open", open);
+  $("sidebarOverlay").hidden = !open;
+  $("mobileMenuBtn").setAttribute("aria-expanded", String(open));
+  $("mobileMenuBtn").setAttribute("aria-label", open ? "Đóng menu" : "Mở menu");
+  document.body.classList.toggle("mobile-menu-open", open);
 }
 
 // ---- Bảng ----
@@ -216,6 +231,10 @@ function renderParsed() {
     parsed = parsed.filter((x) => x.id !== row.id);
     renderParsed();
   };
+  renderTable("serverBody", parsed, remove, potionPreview);
+  $("serverCount").textContent = parsed.length;
+  renderTable("body-all", parsed, remove, potionPreview);
+  $("count-all").textContent = parsed.length;
   for (const tab of TASK_TABS) {
     const rows = parsed.filter((task) => task.category === tab.category);
     renderTable(tab.body, rows, remove, potionPreview);
@@ -330,11 +349,9 @@ async function usePotion(category, arrayKeys, multiplier, countId, potionName) {
 }
 
 function parseCurrentJson(options = {}) {
-  const shouldSave = options.save !== false;
   const shouldSwitchTab = options.switchTab !== false;
   const quiet = options.quiet === true;
   const jsonText = $("json").value;
-  if (shouldSave) saveJson(jsonText);
   try {
     parsed = parseVillage(jsonText, nowSec(), catalog);
     plannerItems = parseVillageItems(jsonText, catalog);
@@ -354,7 +371,7 @@ function parseCurrentJson(options = {}) {
 }
 
 function doParse() {
-  parseCurrentJson({ save: true, switchTab: false });
+  parseCurrentJson({ switchTab: false });
 }
 
 function renderDetails() {
@@ -884,39 +901,6 @@ function toggleSummerJam() {
   renderUpgradePlanner();
 }
 
-function renderServer() {
-  serverTasks.sort((a, b) => a.finishAt - b.finishAt);
-  const unmatched = [...parsed];
-  const displayTasks = serverTasks.map((row) => {
-    const matchIndex = unmatched.findIndex(
-      (task) => Number(task.finishAt) === Number(row.finishAt),
-    );
-    if (matchIndex < 0) return row;
-    const [current] = unmatched.splice(matchIndex, 1);
-    return { ...row, label: current.label };
-  });
-  renderTable("serverBody", displayTasks, async (row) => {
-    try {
-      await apiPost("/api/cancel", { key: row.key });
-      serverTasks = serverTasks.filter((x) => x.key !== row.key);
-      renderServer();
-    } catch (e) {
-      toast("Không huỷ được: " + e.message);
-    }
-  });
-  $("serverCount").textContent = serverTasks.length;
-}
-
-async function loadServer() {
-  try {
-    const res = await apiGet("/api/tasks");
-    serverTasks = res.tasks || [];
-    renderServer();
-  } catch (e) {
-    toast(e.message);
-  }
-}
-
 async function scheduleAll(successMessage = "") {
   const config = channelPayload();
   if (channel === "google" && !config.webhookUrl) {
@@ -942,8 +926,6 @@ async function scheduleAll(successMessage = "") {
   try {
     const res = await apiPost("/api/schedule", { ...config, tasks });
     // API thay toàn bộ lịch cũ bằng lịch mới; dùng kết quả trả về để hiện ngay.
-    serverTasks = res.tasks || [];
-    renderServer();
     toast(successMessage || `Đã thay ${res.replaced || 0} lịch cũ và đặt ${res.scheduled} lịch mới.`);
     return true;
   } catch (e) {
@@ -952,16 +934,17 @@ async function scheduleAll(successMessage = "") {
   }
 }
 
-async function cancelAll() {
-  if (!confirm("Huỷ tất cả tin nhắn đã lên lịch của tài khoản này?")) return;
-  try {
-    await apiPost("/api/cancel", { all: true });
-    serverTasks = [];
-    renderServer();
-    toast("Đã huỷ tất cả.");
-  } catch (e) {
-    toast("Không huỷ được: " + e.message);
-  }
+async function scheduleCurrentJson() {
+  clearTimeout(jsonPreviewTimer);
+  parseCurrentJson({ switchTab: false });
+  const jsonText = $("json").value;
+  if (await scheduleAll()) await saveJson(jsonText);
+}
+
+function clearPreview() {
+  parsed = [];
+  renderParsed();
+  toast("Đã xóa preview.");
 }
 
 // Gửi 1 tin thử tới kênh đang chọn để kiểm tra.
@@ -1013,15 +996,34 @@ async function saveJson(jsonText) {
   }
 }
 
-// Xóa toàn bộ JSON: rỗng ô nhập + danh sách parse + xóa bản lưu server.
+// Xóa JSON và preview cục bộ; chỉ lưu JSON lên server khi đặt lịch.
 function clearJson() {
+  clearTimeout(jsonPreviewTimer);
   $("json").value = "";
   parsed = [];
   plannerItems = [];
   renderParsed();
   renderUpgradePlannerOptions();
-  saveJson("");
   toast("Đã xóa JSON.");
+}
+
+function openJsonPreview() {
+  const jsonText = $("json").value.trim();
+  if (!jsonText) return toast("Chưa có JSON để preview.");
+  try {
+    $("jsonPreviewContent").textContent = JSON.stringify(JSON.parse(jsonText), null, 2);
+    $("jsonPreviewModal").hidden = false;
+    document.body.classList.add("modal-open");
+    $("closeJsonPreviewBtn").focus();
+  } catch (e) {
+    toast("JSON không hợp lệ: " + e.message);
+  }
+}
+
+function closeJsonPreview() {
+  $("jsonPreviewModal").hidden = true;
+  document.body.classList.remove("modal-open");
+  $("jsonPreviewBtn").focus();
 }
 
 function renderCountdowns() {
@@ -1030,7 +1032,6 @@ function renderCountdowns() {
     if (now === lastDisplayNow) return;
     lastDisplayNow = now;
     renderParsed();
-    renderServer();
   }
 }
 
@@ -1038,16 +1039,39 @@ function renderCountdowns() {
 $("loginBtn").onclick = () => doAuth("/api/login");
 $("registerBtn").onclick = () => doAuth("/api/register");
 $("logoutBtn").onclick = logout;
-$("parseBtn").onclick = doParse;
-$("reloadBtn").onclick = doParse;
-$("scheduleBtn").onclick = () => scheduleAll();
-$("refreshBtn").onclick = loadServer;
-$("cancelAllBtn").onclick = cancelAll;
+$("mobileMenuBtn").onclick = () => setMobileMenuOpen(true);
+$("mobileSidebarClose").onclick = () => setMobileMenuOpen(false);
+$("sidebarOverlay").onclick = () => setMobileMenuOpen(false);
+$("sidebarToggle").onclick = () => {
+  const sidebar = $("sidebarToggle").closest(".sidebar");
+  setSidebarCollapsed(!sidebar.classList.contains("collapsed"));
+};
+$("scheduleBtn").onclick = scheduleCurrentJson;
+$("refreshBtn").onclick = doParse;
+$("cancelAllBtn").onclick = clearPreview;
 $("webhook").onchange = saveChannelConfig;
 $("telegramBotToken").onchange = saveChannelConfig;
 $("telegramChatId").onchange = saveChannelConfig;
-$("json").onchange = () => saveJson($("json").value);
+$("json").oninput = () => {
+  clearTimeout(jsonPreviewTimer);
+  jsonPreviewTimer = setTimeout(
+    () => parseCurrentJson({ switchTab: false, quiet: true }),
+    300,
+  );
+};
 $("clearJsonBtn").onclick = clearJson;
+$("jsonPreviewBtn").onclick = openJsonPreview;
+$("closeJsonPreviewBtn").onclick = closeJsonPreview;
+$("jsonPreviewModal").onclick = (event) => {
+  if (event.target === $("jsonPreviewModal")) closeJsonPreview();
+};
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !$("jsonPreviewModal").hidden) closeJsonPreview();
+  if (event.key === "Escape" && $("appSidebar").classList.contains("mobile-open")) {
+    setMobileMenuOpen(false);
+    $("mobileMenuBtn").focus();
+  }
+});
 $("testWebhookBtn").onclick = testWebhook;
 $("potionPreviewBtn").onclick = togglePotionPreview;
 $("builderPotionCount").oninput = refreshPotionPreview;
@@ -1107,14 +1131,16 @@ for (const input of document.querySelectorAll('input[name="channel"]')) {
   };
 }
 for (const button of document.querySelectorAll(".tab")) {
-  button.onclick = () => setActiveTab(button.dataset.tab || "parse");
+  button.onclick = () => {
+    setActiveTab(button.dataset.tab || "parse");
+    setMobileMenuOpen(false);
+  };
 }
-$("speed10x").onchange = () => {
-  speed10x = $("speed10x").checked;
-  resetClock();
-  renderCountdowns();
-};
+window.matchMedia("(min-width: 901px)").addEventListener("change", (event) => {
+  if (event.matches) setMobileMenuOpen(false);
+});
 resetClock();
+setSidebarCollapsed(localStorage.getItem(LS_SIDEBAR_COLLAPSED) === "true");
 setActiveTab(activeTab);
 setInterval(renderCountdowns, 100);
 
