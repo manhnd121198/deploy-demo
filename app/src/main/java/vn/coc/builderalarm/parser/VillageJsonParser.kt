@@ -11,10 +11,12 @@ class VillageParseException(message: String) : Exception(message)
 /**
  * Trích các timer đang chạy từ JSON "chia sẻ làng" của Clash of Clans.
  *
- * Quy tắc: finishAt = timestamp + timer. Bỏ qua timer đã xong (finishAt <= now).
+ * Quy tắc: finishAt = timestamp + timer đã tính trợ giúp. Bỏ qua timer đã xong (finishAt <= now).
  * Chỉ phân loại theo nguồn, không tra tên công trình.
  */
 object VillageJsonParser {
+
+    private const val BUILDER_APPRENTICE_ID = 93000000L
 
     fun parse(
         json: String,
@@ -32,6 +34,7 @@ object VillageJsonParser {
         }
         val timestamp = root.optLong("timestamp", -1L)
         if (timestamp <= 0L) throw VillageParseException("'timestamp' không hợp lệ")
+        val builderApprenticeLevel = findLevel(root, "helpers", BUILDER_APPRENTICE_ID)
 
         val tasks = mutableListOf<BuilderTask>()
         var nextId = 1
@@ -57,20 +60,20 @@ object VillageJsonParser {
         }
 
         // Mảng có field "timer".
-        forEachTimer(root, "buildings") { timer, dataId, level ->
-            add("Thợ xây", timer, dataId, level)
+        forEachTimer(root, "buildings") { timer, dataId, level, helperTimer ->
+            add("Thợ xây", adjustedBuilderTimer(timer, helperTimer, builderApprenticeLevel), dataId, level)
         }
-        forEachTimer(root, "heroes") { timer, dataId, level ->
-            add("Thợ xây", timer, dataId, level)
+        forEachTimer(root, "heroes") { timer, dataId, level, helperTimer ->
+            add("Thợ xây", adjustedBuilderTimer(timer, helperTimer, builderApprenticeLevel), dataId, level)
         }
-        forEachTimer(root, "buildings2") { timer, dataId, level ->
+        forEachTimer(root, "buildings2") { timer, dataId, level, _ ->
             add("Builder Base", timer, dataId, level)
         }
-        forEachTimer(root, "heroes2") { timer, dataId, level ->
+        forEachTimer(root, "heroes2") { timer, dataId, level, _ ->
             add("Builder Base", timer, dataId, level)
         }
         listOf("units", "units2", "spells", "siege_machines").forEach { key ->
-            forEachTimer(root, key) { timer, dataId, level ->
+            forEachTimer(root, key) { timer, dataId, level, _ ->
                 add("Lab", timer, dataId, level)
             }
         }
@@ -90,7 +93,7 @@ object VillageJsonParser {
     private inline fun forEachTimer(
         root: JSONObject,
         key: String,
-        add: (timer: Long, dataId: Long, level: Int) -> Unit
+        add: (timer: Long, dataId: Long, level: Int, helperTimer: Long) -> Unit
     ) {
         val arr: JSONArray = root.optJSONArray(key) ?: return
         for (i in 0 until arr.length()) {
@@ -99,10 +102,31 @@ object VillageJsonParser {
                 add(
                     o.optLong("timer", 0L),
                     o.optLong("data", 0L),
-                    o.optInt("lvl", 0)
+                    o.optInt("lvl", 0),
+                    o.optLong("helper_timer", 0L)
                 )
             }
         }
+    }
+
+    private fun adjustedBuilderTimer(timer: Long, helperTimer: Long, helperLevel: Int): Long {
+        if (timer <= 0L || helperTimer <= 0L || helperLevel <= 0) return timer
+        val boostedSpeed = helperLevel.toLong() + 1L
+        val boostedWork = helperTimer * boostedSpeed
+        return if (timer <= boostedWork) {
+            (timer + boostedSpeed - 1L) / boostedSpeed
+        } else {
+            timer - helperTimer * helperLevel
+        }
+    }
+
+    private fun findLevel(root: JSONObject, arrayKey: String, dataId: Long): Int {
+        val arr: JSONArray = root.optJSONArray(arrayKey) ?: return 0
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            if (o.optLong("data", 0L) == dataId) return o.optInt("lvl", 0)
+        }
+        return 0
     }
 
     private inline fun forEachField(

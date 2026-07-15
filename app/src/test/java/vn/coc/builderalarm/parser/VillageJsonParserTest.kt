@@ -81,6 +81,25 @@ class VillageJsonParserTest {
     }
 
     @Test
+    fun `tinh lai gio xong khi Tho xay Hoc viec dang giup`() {
+        val json = """
+            {
+              "timestamp": $timestamp,
+              "helpers": [{"data": 93000000, "lvl": 3, "helper_cooldown": 15990}],
+              "buildings": [{"data": 1000013, "lvl": 5, "timer": 22215, "helper_timer": 3391}],
+              "heroes": [{"data": 28000000, "lvl": 79, "timer": 3600, "helper_timer": 3600}]
+            }
+        """.trimIndent()
+
+        val finishTimes = VillageJsonParser.parse(json, timestamp)
+            .filter { it.category == "Thợ xây" }
+            .map { it.finishAtEpochSec }
+
+        assertTrue(finishTimes.contains(timestamp + 12042)) // 22215 - 3391 * 3
+        assertTrue(finishTimes.contains(timestamp + 900)) // xong khi trợ thủ vẫn đang hoạt động
+    }
+
+    @Test
     fun `hien ten va cap nang cap khi catalog co data id`() {
         val names = mapOf(
             1000009L to "Tháp Cung",

@@ -1,5 +1,5 @@
 // Port của VillageJsonParser.kt — trích timer đang chạy từ JSON "chia sẻ làng" CoC.
-// Quy tắc: finishAt = timestamp + timer. Bỏ timer đã xong (finishAt <= now).
+// Quy tắc: finishAt = timestamp + timer đã tính trợ giúp. Bỏ timer đã xong (finishAt <= now).
 // Tra catalog theo field "data" để hiện tên và cấp đích.
 
 class VillageParseError extends Error {}
@@ -43,17 +43,28 @@ function parseVillage(jsonText, nowSec, catalog) {
   }
 
   const arr = (key) => (Array.isArray(root[key]) ? root[key] : []);
-  const withField = (key, field, category, useCatalog = false) => {
+  const builderApprenticeLevel = Number(arr("helpers").find((o) => Number(o?.data) === 93000000)?.lvl || 0);
+  const adjustedBuilderTimer = (timer, helperTimer) => {
+    timer = Number(timer);
+    helperTimer = Number(helperTimer) || 0;
+    if (timer <= 0 || helperTimer <= 0 || builderApprenticeLevel <= 0) return timer;
+    const boostedSpeed = builderApprenticeLevel + 1;
+    return timer <= helperTimer * boostedSpeed
+      ? Math.ceil(timer / boostedSpeed)
+      : timer - helperTimer * builderApprenticeLevel;
+  };
+  const withField = (key, field, category, useCatalog = false, useBuilderHelper = false) => {
     for (const o of arr(key)) {
       if (o && typeof o === "object" && field in o) {
-        add(category, o[field], useCatalog ? o : {});
+        const timer = useBuilderHelper ? adjustedBuilderTimer(o[field], o.helper_timer) : o[field];
+        add(category, timer, useCatalog ? o : {});
       }
     }
   };
 
   // Mảng có field "timer".
-  withField("buildings", "timer", "Thợ xây", true);
-  withField("heroes", "timer", "Thợ xây", true);
+  withField("buildings", "timer", "Thợ xây", true, true);
+  withField("heroes", "timer", "Thợ xây", true, true);
   withField("buildings2", "timer", "Builder Base", true);
   withField("heroes2", "timer", "Builder Base", true);
   withField("units", "timer", "Lab", true);
